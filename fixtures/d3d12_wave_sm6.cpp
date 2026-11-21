@@ -69,8 +69,15 @@ int main(int argc,char** argv){
             if(status==DXGI_ERROR_NOT_FOUND)break;
             if(FAILED(status) || !candidate)continue;
             DXGI_ADAPTER_DESC1 desc{};
-            if(FAILED(candidate->GetDesc1(&desc)) ||
-               (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))continue;
+            if(FAILED(candidate->GetDesc1(&desc)))continue;
+            // In hosted CI, Microsoft Basic Render Driver (VID 0x1414) was
+            // *not* tagged SOFTWARE yet executed all SM6 tests. Explicitly
+            // require one of the target physical GPU vendors instead.
+            const bool target_vendor=desc.VendorId==0x1002u || // AMD
+                                     desc.VendorId==0x10deu || // NVIDIA
+                                     desc.VendorId==0x8086u;   // Intel
+            if(!target_vendor || (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))
+                continue;
             ComPtr<ID3D12Device> probe;
             if(FAILED(D3D12CreateDevice(candidate.Get(),D3D_FEATURE_LEVEL_11_0,
                                         IID_PPV_ARGS(&probe))))continue;
@@ -86,7 +93,7 @@ int main(int argc,char** argv){
             break;
         }
         if(!device){
-            std::cout<<"SKIP: no physical GPU supporting D3D12 SM6 WaveOps\n";
+            std::cout<<"SKIP: no AMD/NVIDIA/Intel adapter supporting D3D12 SM6 WaveOps\n";
             return 77;
         }
     }

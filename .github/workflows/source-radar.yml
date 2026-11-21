@@ -31,6 +31,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python tools/commit_watch.py --report artifacts/commit-leads.md --snapshot artifacts/commit-leads.json
+      - name: Check official PC SDK and Linux compatibility release metadata
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/sdk_radar.py --report artifacts/sdk-releases.md --snapshot artifacts/sdk-releases.json
       - name: Retain small metadata reports (no game files)
         if: always()
         uses: actions/upload-artifact@v4

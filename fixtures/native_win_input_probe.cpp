@@ -213,11 +213,11 @@ int run(bool interactive) {
              "\"raw_registration\":true,\"raw_unregistered\":true,"
              "\"native_window_dispatch\":true,"
              "\"xinput_getstate_called\":"<<(probe.xinput_polls?"true":"false")<<','
-             "\"connected_slots\":"<<probe.connected_slots<<','
-             "\"raw_messages_received\":"<<probe.raw_messages<<','
-             "\"rejected_reports\":"<<probe.rejected_reports<<','
-             "\"clock_frequency_hz\":"<<probe.frequency.QuadPart<<','
-             "\"actual_device_input_verified\":false,"
+             <<"\"connected_slots\":"<<probe.connected_slots<<','
+             <<"\"raw_messages_received\":"<<probe.raw_messages<<','
+             <<"\"rejected_reports\":"<<probe.rejected_reports<<','
+             <<"\"clock_frequency_hz\":"<<probe.frequency.QuadPart<<','
+             <<"\"actual_device_input_verified\":false,"
              "\"dualsense_haptics_verified\":false,"
              "\"commercial_game_tested\":false}\n";
     return 0;

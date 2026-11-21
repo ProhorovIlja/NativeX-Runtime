@@ -1,0 +1,23 @@
+{
+  "queries": {
+    "Xbox Series Windows compatibility": [
+      {
+        "full_name": "omonkeyz/xbox-emulator",
+        "description": "tracked source",
+        "fork": false
+      },
+      {
+        "full_name": "example/new-native-runtime",
+        "description": "synthetic discovery candidate",
+        "fork": false
+      }
+    ],
+    "Scarlett GDK emulator": [
+      {
+        "full_name": "example/scarlett-fork",
+        "description": "synthetic fork",
+        "fork": true
+      }
+    ]
+  }
+}

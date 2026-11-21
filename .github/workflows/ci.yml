@@ -1,0 +1,56 @@
+name: Scarlett compatibility research CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-source-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Offline Python unit tests
+        run: python -m unittest discover -s tests -v
+      - name: Offline GitHub revision fixture
+        run: python tools/radar.py --offline-fixture tests/fixtures/public_metadata.json --report artifacts/radar.md --snapshot artifacts/radar.json
+      - name: Offline project discovery fixture
+        run: python tools/discover.py --offline-fixture tests/fixtures/discovery.json --report artifacts/discovery.md --snapshot artifacts/discovery.json
+      - name: Compile original read-only PE parser
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j2
+          ctest --test-dir build --output-on-failure
+
+  windows-x64-source-fixtures:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+      - name: Configure MSVC x64
+        run: cmake -S . -B build -A x64
+      - name: Compile C++17 native programs
+        run: cmake --build build --config Release
+      - name: Run synthetic PE32+ and host fixture tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Print Windows host prerequisites (not game compatibility)
+        run: .\build\Release\win_native_probe.exe

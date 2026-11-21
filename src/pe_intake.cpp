@@ -8,12 +8,15 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <utility>
 
 class PE {
   std::vector<unsigned char> b;
   struct Section { uint32_t va, size, raw, len; };
   std::vector<Section> sections;
-  std::vector<std::string> names, imports;
+  std::vector<std::string> names, imports, delay_imports;
+  uint32_t relocation_blocks=0;
+  bool has_tls_directory=false;
   uint64_t image_base = 0;
   uint32_t entry = 0, headers = 0;
   void need(size_t pos,size_t n) const {
@@ -72,6 +75,13 @@ public:
       names.push_back(name);
       sections.push_back({u32(p+12),u32(p+8),u32(p+20),u32(p+16)});
     }
+    // Directory tuples are RVA+size; a claimed directory must fit the optional header.
+    const auto dir=[&](unsigned index)->std::pair<uint32_t,uint32_t>{
+      unsigned count=u32(opt+108);
+      if(count<=index)return {0,0};
+      if(optlen<112+8*(index+1))throw std::runtime_error("truncated PE data directory");
+      return {u32(opt+112+8*index),u32(opt+116+8*index)};
+    };
     if(u32(opt+108)>=2){
       uint32_t addr=u32(opt+120),length=u32(opt+124);
       if(addr&&length){
@@ -87,13 +97,53 @@ public:
         if(!done)throw std::runtime_error("unterminated import table");
       }
     }
+    const auto reloc=dir(5);
+    if(reloc.first && reloc.second){
+      uint64_t consumed=0;
+      while(consumed<reloc.second){
+        if(reloc.second-consumed<8 || uint64_t(reloc.first)+consumed>UINT32_MAX)
+          throw std::runtime_error("truncated relocations");
+        size_t pos=rva(uint32_t(uint64_t(reloc.first)+consumed),8);
+        uint32_t block=u32(pos+4);
+        if(block<8 || block%2 || block>reloc.second-consumed)
+          throw std::runtime_error("invalid relocation block");
+        rva(uint32_t(uint64_t(reloc.first)+consumed),block);
+        consumed+=block;
+        ++relocation_blocks;
+      }
+    }
+    const auto tls=dir(9);
+    if(tls.first && tls.second){
+      if(tls.second<40)throw std::runtime_error("truncated TLS directory");
+      rva(tls.first,40);
+      has_tls_directory=true;
+    }
+    const auto delay=dir(13);
+    if(delay.first && delay.second){
+      bool terminated=false;
+      for(uint64_t i=0;i<std::min<uint64_t>(1024,delay.second/32);++i){
+        if(uint64_t(delay.first)+i*32>UINT32_MAX)throw std::runtime_error("delay import RVA overflow");
+        size_t pos=rva(uint32_t(uint64_t(delay.first)+i*32),32);
+        uint32_t attrs=u32(pos), name=u32(pos+4);
+        bool all_zero=true;
+        for(unsigned j=0;j<32;j+=4)all_zero=all_zero && (u32(pos+j)==0);
+        if(all_zero){terminated=true;break;}
+        if(!(attrs&1)||!name)throw std::runtime_error("unsupported delay import descriptor");
+        delay_imports.push_back(module(name));
+      }
+      if(!terminated)throw std::runtime_error("unterminated delay imports");
+    }
   }
   std::string json() const{
     std::ostringstream out;
     out<<"{\"kind\":\"pe32plus-metadata\",\"machine\":\"AMD64\",\"sections\":"<<sections.size()
        <<",\"entry_rva\":"<<entry<<",\"image_base\":"<<image_base<<",\"import_modules\":[";
     for(size_t i=0;i<imports.size();i++)out<<(i?",":"")<<quote(imports[i]);
-    out<<"],\"section_names\":[";
+    out<<"],\"delay_import_modules\":[";
+    for(size_t i=0;i<delay_imports.size();i++)out<<(i?",":"")<<quote(delay_imports[i]);
+    out<<"],\"relocation_blocks\":"<<relocation_blocks
+       <<",\"has_tls_directory\":"<<(has_tls_directory?"true":"false")
+       <<",\"section_names\":[";
     for(size_t i=0;i<names.size();i++)out<<(i?",":"")<<quote(names[i]);
     out<<"],\"executable_tested\":false}\n";return out.str();
   }

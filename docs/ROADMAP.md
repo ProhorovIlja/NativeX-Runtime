@@ -3,7 +3,8 @@
 ## M0 — public, no protected data
 - Pin baseline SHAs and licensing metadata for multiple upstreams.
 - Add repeatable Python source-radar and candidate search (read-only metadata).
-- Compile C++17 PE32+ inspector and Windows host prerequisite checker.
+- Compile C++17 PE32+ inspector and Windows host prerequisite checker (**passing on standard public CI**).
+- Test native Windows named/ordinal DLL exports (**passing on standard public CI**).
 - Run deterministic Linux and Windows CI tests on synthetic fixtures.
 - Record upstream issues and reproducibility blockers with direct links.
 

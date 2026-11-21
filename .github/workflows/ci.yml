@@ -67,5 +67,7 @@ jobs:
         run: cmake --build build --config Release
       - name: Run synthetic PE32+ and host fixture tests
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Record SM6 adapter IDs and hardware test disposition
+        run: ctest --test-dir build -C Release -R d3d12_sm6_hardware_wave_differential -V
       - name: Print Windows host prerequisites (not game compatibility)
         run: .\build\Release\win_native_probe.exe

@@ -3,6 +3,13 @@
 - Public clean repository: **yes**, new independent history.
 - Imported proprietary assets/executables: **none**.
 - Runnable Xbox Series title or commercial game: **not demonstrated**.
+
+- **Native Linux Vulkan compute readback:** [PR #44](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/44), [Linux Vulkan CI 44963328111](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963328111) — compiled original GLSL to SPIR-V, invoked `vkCmdDispatch`, waited for fence, read back and checked all **256 integer results**. Reported Mesa Vulkan software device (type CPU); **no physical GPU, raster frame, present or Xbox RDNA2**.
+- **Native Windows asynchronous disk I/O:** [PR #45](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/45), [Linux/Windows CI 44963433180](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963433180) — real Win32 overlapped temporary-file IOCP, 8 × 4 KiB writes and 8 × 4 KiB reads with exact completion and checksum verification. Not DirectStorage/GDeflate/NVMe/console physical-page compatibility.
+- **Native PCM audio core and Windows WASAPI probe:** [PR #46](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/46), [CI 44963657150](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963657150) — original bounded C++17 stereo PCM mixing tests passed Linux and Windows; WASAPI source probe compiled on Windows, **endpoint test SKIPPED** on headless runner; no audio output or codec support verified.
+- **Updated AnyXboxX source acceptance:** [PR #47](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/47), [CI 44963894313](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963894313) — independent MSVC build of upstream `1a2e2e677c18e6ae4053eb84d4ff2395c538c108`, 5 DLLs + launcher, own original PE32+ probes exit **42/43/44/45** matched. **Upstream changed LGPL-2.1-or-later to GPL-3.0-or-later** on 2026-11-21; source not imported. New RDNA2 operand decoder progress is author-reported, not verified by our PE tests.
+- Follow-up [public upstream evidence review](UPSTREAM_SECOND_PASS_2026-11-22.md) compares XCL DirectStorage/media changes, Xbox2Windows WARP issue, AnyXboxX RDNA2 decoder and these verified host fixtures; no game asset/EXE in scope.
+
 - Original read-only PE32+ inspector: Linux/Windows CI passed for baseline synthetic tests. Extended import/TLS/relocation metadata and corruption rejection passed on Linux and Windows in public CI.
 - Windows-native host capability probe: public Windows x64 MSVC CI passed.
 - GitHub revision/discovery/commit-subject scanners: offline tests and public Linux CI passed; daily bounded API reports configured.

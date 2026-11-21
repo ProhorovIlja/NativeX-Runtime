@@ -50,7 +50,7 @@ Microsoft DirectStorage is Windows-specific even though the companion GDeflate c
 
 ## Implemented here: original fail-closed selection policy
 
-The current main branch implements a standalone source-built C++17 policy in src/pc_feature_policy.hpp and src/pc_feature_policy.cpp, with ten cross-platform deterministic scenarios in fixtures/pc_feature_policy_tests.cpp. This is a **config/decision unit**, not real FSR/DLSS/XeSS/Reflex/DirectStorage integration.
+The current main branch implements a source-built C++17 policy in src/pc_feature_policy.hpp and src/pc_feature_policy.cpp, with **14** cross-platform deterministic scenarios in fixtures/pc_feature_policy_tests.cpp. Every effect must additionally have an independently verified **selected D3D12 or Vulkan API** integration gate; Vulkan-only FSR/DLSS/XeSS/latency never silently propagates into a D3D12 renderer (or vice versa). See [integration gate evidence](GPU_API_INTEGRATION_GATES_2026-11-22.md). This is a **config/decision unit**, not real FSR/DLSS/XeSS/Reflex/DirectStorage integration.
 
 - Uses caller-verified flags representing app renderer/API/provider integration. A library export's existence NEVER automatically marks an app SDK as working.
 - Windows defaults to a verified D3D12 renderer; native Linux requires a verified Vulkan renderer; optional native Windows Vulkan is allowed.

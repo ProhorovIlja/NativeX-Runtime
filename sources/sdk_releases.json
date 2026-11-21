@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "purpose": "Official public source release metadata only; no SDK binary download, no game files, no title-compatibility claim",
+  "sources": [
+    {
+      "repository": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK",
+      "category": "upscaling-frame-generation",
+      "reference": "FSR SDK"
+    },
+    {
+      "repository": "intel/xess",
+      "category": "upscaling-frame-generation-latency",
+      "reference": "XeSS SDK"
+    },
+    {
+      "repository": "NVIDIA-RTX/Streamline",
+      "category": "upscaling-frame-generation-latency-neural-interface",
+      "reference": "Streamline SDK"
+    },
+    {
+      "repository": "HansKristian-Work/vkd3d-proton",
+      "category": "linux-compat-d3d12-to-vulkan",
+      "reference": "vkd3d-proton"
+    },
+    {
+      "repository": "microsoft/DirectStorage",
+      "category": "windows-asset-io",
+      "reference": "DirectStorage (GitHub latest release may be absent)"
+    },
+    {
+      "repository": "ValveSoftware/Proton",
+      "category": "linux-windows-compatibility",
+      "reference": "Proton (not a native ELF port)"
+    }
+  ]
+}

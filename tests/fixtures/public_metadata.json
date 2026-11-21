@@ -7,6 +7,26 @@
     "ivall/xcl": {
       "head_sha": "f12d724dd94b6ab99acef04866e3e2f8da7b9e",
       "license_metadata": "GPL-2.0"
+    },
+    "microsoft/Xbox-GDK-Samples": {
+      "head_sha": "b1e77b6ac10f95b07296025fda171ca2ddc42dbe",
+      "license_metadata": "MIT"
+    },
+    "microsoft/DirectXShaderCompiler": {
+      "head_sha": "915bf4f93a254d920b4bcab75b6b1c622eacd816",
+      "license_metadata": "NOASSERTION"
+    },
+    "llvm/llvm-project": {
+      "head_sha": "918df2fb335ac75e9b8995dcec64c6b187fbe44e",
+      "license_metadata": "NOASSERTION"
+    },
+    "microsoft/DirectX-Graphics-Samples": {
+      "head_sha": "68a2b1e97f71642924e74c7757ca21756ad221b5",
+      "license_metadata": "MIT"
+    },
+    "shadps4-emu/shadPS4": {
+      "head_sha": "264d6b71d8671a429ad2c9d1a281e18558fb9693",
+      "license_metadata": "GPL-2.0"
     }
   }
 }

@@ -53,8 +53,20 @@ std::uint64_t fnv1a64(const std::vector<std::uint8_t>& bytes) {
 Reader::Reader(std::size_t workers,std::size_t max_queued):max_queued_(max_queued) {
     if(workers==0||workers>16||max_queued==0||max_queued>256)
         throw std::invalid_argument("invalid thread/queue configuration");
-    for(std::size_t i=0;i<workers;i++)
-        workers_.emplace_back([this]{work();});
+    // A failure during partial thread startup must join already launched
+    // threads. Otherwise std::thread destructors would call std::terminate.
+    try {
+        for(std::size_t i=0;i<workers;i++)
+            workers_.emplace_back([this]{work();});
+    } catch(...) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            stopping_=true;
+        }
+        wake_.notify_all();
+        for(auto& thread:workers_)if(thread.joinable())thread.join();
+        throw;
+    }
 }
 Reader::~Reader() {
     {

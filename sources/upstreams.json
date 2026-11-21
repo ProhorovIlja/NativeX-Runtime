@@ -1,43 +1,47 @@
 {
   "schema_version": 1,
-  "baseline_date": "2026-11-21",
+  "baseline_date": "2026-11-22",
   "purpose": "Public source-code research only; never checkout or download game files",
   "sources": [
     {
       "repository": "omonkeyz/xbox-emulator",
       "ref": "main",
-      "baseline_sha": "6590adbe2135a5a979fd857d9c84fe0414b966b5",
+      "baseline_sha": "0fc72956f9ff742a275534c27d9e5a7a9886a0c3",
       "category": "runtime",
       "license_metadata": "Apache-2.0",
       "summary": "High-level Xbox Series GDK/D3D12.x experiments; purported title bring-up is not independently reproduced",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "6590adbe2135a5a979fd857d9c84fe0414b966b5"
     },
     {
       "repository": "drycheetah84/TomBox",
       "ref": "master",
-      "baseline_sha": "7e8064fdcd47bca4afef3ec295668ed40b81c047",
+      "baseline_sha": "7425a91fa8d1ee1b9517c833b3183919aab3ea7f",
       "category": "runtime",
       "license_metadata": "UNVERIFIED",
       "summary": "Rust compatibility and graphics research; clean-clone build issue reported",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "7e8064fdcd47bca4afef3ec295668ed40b81c047"
     },
     {
       "repository": "ivall/xcl",
       "ref": "main",
-      "baseline_sha": "3c546ef78e6be51190843c1b24569b6b0cdcfec0",
+      "baseline_sha": "f12d724dd94b6ab99acef04866e3e3e2f8da7b9e",
       "category": "runtime",
       "license_metadata": "GPL-2.0",
       "summary": "RDNA2 shader translation to HLSL/DXIL; game graphics submission incomplete in README",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "3c546ef78e6be51190843c1b24569b6b0cdcfec0"
     },
     {
       "repository": "californiaAlmonds/OpenScarlett",
       "ref": "main",
-      "baseline_sha": "bcc28958f94f6a2c35a72b2bee7bbda64be83d59",
+      "baseline_sha": "7cc28a7bc5bdd69cd475b70a1064287eee6e560c",
       "category": "runtime",
       "license_metadata": "MIT",
       "summary": "C++20 host/graphics synthetic tests; game boot not independently demonstrated",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "bcc28958f94f6a2c35a72b2bee7bbda64be83d59"
     },
     {
       "repository": "Ender-0001/GDKScarlett",
@@ -46,7 +50,8 @@
       "category": "runtime",
       "license_metadata": "BSD-2-Clause",
       "summary": "Replace console-specific GDK APIs; Xbox Series d3d12_xs not yet supported",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "e703bc3a11ad2780c9167f98c25b9867c7b08797"
     },
     {
       "repository": "Freminet/ScarlettX",
@@ -55,34 +60,38 @@
       "category": "runtime",
       "license_metadata": "UNVERIFIED",
       "summary": "PE/GDK synthetic HLE tests; shader and unified memory implementation gaps",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "bda18b4d3dab501dd0f372e5d1921f462c6bd457"
     },
     {
       "repository": "R0Y00/Xbox2Windows",
       "ref": "main",
-      "baseline_sha": "496fc28aafe3755637ee394b6404044457dfe292",
+      "baseline_sha": "6ee2406ea69a26e47c846033ff4cb8c1ac9b27c0",
       "category": "research",
       "license_metadata": "MIT",
       "summary": "Static recompilation and GPU correctness fixtures, no full-title run",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "496fc28aafe3755637ee394b6404044457dfe292"
     },
     {
       "repository": "ItsNotRexed/Leonida",
       "ref": "main",
-      "baseline_sha": "4c75ce537add406b426d0a1dc84d9a01fb4c86c9",
+      "baseline_sha": "36ace7135e897c228eede5d1d8c28e972285cb14",
       "category": "game-research",
       "license_metadata": "GPL-3.0",
       "summary": "Shader and resource inspection; source repo does not prove game boot",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "4c75ce537add406b426d0a1dc84d9a01fb4c86c9"
     },
     {
       "repository": "realdody/americas-recomp",
       "ref": "xbox-series",
-      "baseline_sha": "e7833ef44668d141aff708ae47ff7d3fb94c3cb1",
+      "baseline_sha": "3a0c38b3ae10135288b96a582d1214e8a79ccbef",
       "category": "shader",
       "license_metadata": "GPL-2.0",
       "summary": "GPU ISA to SPIR-V experiments and structural validation",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "e7833ef44668d141aff708ae47ff7d3fb94c3cb1"
     },
     {
       "repository": "oguzhanozfe/gta-vi-port-research",
@@ -91,16 +100,18 @@
       "category": "research",
       "license_metadata": "UNVERIFIED",
       "summary": "Read-only resource inspection tooling; do not import game data",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "df423f4f45fc397a98b872cab9db9f1aee2df8c5"
     },
     {
       "repository": "brcly/TuxBox",
       "ref": "main",
-      "baseline_sha": "6d15471b0ebac7e89f4ac3959667a4b6faa7fa60",
+      "baseline_sha": "d5abfc01dd551aae4841be7de5038ba78185d2b4",
       "category": "runtime",
       "license_metadata": "UNVERIFIED",
       "summary": "Linux-first compatibility work, Windows work-in-progress",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "6d15471b0ebac7e89f4ac3959667a4b6faa7fa60"
     },
     {
       "repository": "andrewnakas/gtav-recomp",
@@ -109,7 +120,8 @@
       "category": "reference",
       "license_metadata": "GPL-3.0",
       "summary": "Xbox 360 PowerPC recompilation; workflow lessons, not Xbox Series ABI",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "2a76184f563e4b604a88bea8eeed1334e77f3220"
     },
     {
       "repository": "microsoft/GDK",
@@ -118,16 +130,21 @@
       "category": "official",
       "license_metadata": "FILE-SPECIFIC",
       "summary": "Public GDK docs/samples; check per-file terms",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "d773744074fb757ef27b2356c9aef5497b14623b"
     },
     {
       "repository": "LooperSalty/AnyXboxX",
       "ref": "main",
-      "baseline_sha": "1aad95584d8be3c0778d887986b3f33152b41a1d",
+      "baseline_sha": "c9a243270ceb309c15fe82b0b6b763ff29061d9e",
       "category": "reference",
       "license_metadata": "LGPL-2.1",
       "summary": "Independent LLVM decoder comparison, synthetic examples and isolated emulation",
-      "evidence": "GitHub metadata and upstream author statements; independent tests pending"
+      "evidence": "GitHub metadata and upstream author statements; independent tests pending",
+      "initial_baseline_sha": "1aad95584d8be3c0778d887986b3f33152b41a1d"
     }
-  ]
+  ],
+  "first_baseline_date": "2026-11-21",
+  "baseline_kind": "observed-public-GitHub-ref-snapshot-not-technical-verification",
+  "checkpoint_note": "SHAs copied from public GitHub git/ref/heads on 2026-11-21 UTC / November 22 project checkpoint; technical claims not independently executed"
 }

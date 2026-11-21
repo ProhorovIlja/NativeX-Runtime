@@ -19,3 +19,11 @@ foreach(kind baseline imports gdk_shim)
     target_link_options(scarlett_pe_${kind} PRIVATE /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
   endif()
 endforeach()
+
+# A fourth original PE32+ program: desktop D3D12 WARP device/queue/fence test.
+add_executable(scarlett_pe_d3d12 d3d12_probe.c)
+target_link_libraries(scarlett_pe_d3d12 PRIVATE kernel32 dxgi d3d12 dxguid)
+if(MSVC)
+  target_compile_options(scarlett_pe_d3d12 PRIVATE /W4 /WX /GS-)
+  target_link_options(scarlett_pe_d3d12 PRIVATE /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
+endif()

@@ -28,6 +28,8 @@ jobs:
         run: python -m unittest discover -s tests -v
       - name: Offline GitHub revision fixture
         run: python tools/radar.py --offline-fixture tests/fixtures/public_metadata.json --report artifacts/radar.md --snapshot artifacts/radar.json
+      - name: Offline native PC input source checkpoint
+        run: python tools/radar.py --registry sources/input_upstreams.json --offline-fixture tests/fixtures/input_public_metadata.json --report artifacts/input-upstream-revisions.md --snapshot artifacts/input-upstream-revisions.json
       - name: Offline project discovery fixture
         run: python tools/discover.py --offline-fixture tests/fixtures/discovery.json --report artifacts/discovery.md --snapshot artifacts/discovery.json
       - name: Offline upstream commit subject fixture

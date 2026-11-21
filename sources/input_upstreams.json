@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "baseline_date": "2026-11-22",
+  "purpose": "Native PC input source research metadata only, never copy HID report implementations or download binaries",
+  "sources": [
+    {
+      "repository": "microsoftconnect/GameInput",
+      "ref": "main",
+      "baseline_sha": "4a3150cbe27d5fa7bad98dbacd79a40152e4b05e",
+      "initial_baseline_sha": "4a3150cbe27d5fa7bad98dbacd79a40152e4b05e",
+      "license_metadata": "NOASSERTION",
+      "category": "official-windows-input",
+      "summary": "Microsoft GameInput v4 headers and first-party DualSense adaptive-trigger sample; specific header files are MIT",
+      "evidence": "public repository metadata; no physical device verification"
+    },
+    {
+      "repository": "libsdl-org/SDL",
+      "ref": "main",
+      "baseline_sha": "c8da179691f909734cd1b124c930e49311428996",
+      "initial_baseline_sha": "c8da179691f909734cd1b124c930e49311428996",
+      "license_metadata": "Zlib",
+      "category": "native-cross-platform-input",
+      "summary": "SDL3 HIDAPI/gamepad/native Linux and optional desktop input; feature/device matrix requires testing",
+      "evidence": "public repository metadata; no physical device verification"
+    },
+    {
+      "repository": "libusb/hidapi",
+      "ref": "master",
+      "baseline_sha": "378a53a8b6c098a32bea5dd659d647898030ccb0",
+      "initial_baseline_sha": "378a53a8b6c098a32bea5dd659d647898030ccb0",
+      "license_metadata": "NOASSERTION",
+      "category": "hid-library",
+      "summary": "Low-level HID read/write library; output protocol and per-file licensing must be reviewed",
+      "evidence": "public repository metadata; no physical device verification"
+    },
+    {
+      "repository": "nondebug/dualsense",
+      "ref": "main",
+      "baseline_sha": "02338358b6b4be2d64dbf661ae2a47842156cfcf",
+      "initial_baseline_sha": "02338358b6b4be2d64dbf661ae2a47842156cfcf",
+      "license_metadata": "UNVERIFIED",
+      "category": "research-documentation",
+      "summary": "Independent USB/Bluetooth descriptor and report study; reference only, not an SDK or permission to redistribute hardware protocol code",
+      "evidence": "public repository metadata; no physical device verification"
+    }
+  ]
+}

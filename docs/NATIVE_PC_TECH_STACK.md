@@ -2,6 +2,10 @@
 
 **Scope.** Native Xbox Series x86-64 research plus a future Windows PC renderer, a later native Linux build, and opt-in graphics/performance improvements. No actual GTA VI Xbox EXE/assets or console-only D3D12.X runtime are in this project. A source-built Windows PE loader already executed original Win32/GDK-shim/D3D12-WARP fixtures; it has NOT executed an Xbox game.
 
+
+**Verified additions (2026-11-22):** [native Linux Vulkan compute readback](NATIVE_LINUX_VULKAN_COMPUTE_2026-11-22.md) executed 256 SPIR-V shader operations on Mesa software Vulkan ([CI 44963328111](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963328111)); [Win32 IOCP storage](NATIVE_WIN_IOCP_DISK_2026-11-22.md) verified asynchronous disk completions/bytes ([CI 44963433180](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963433180)); [portable PCM mixer / WASAPI](NATIVE_PC_AUDIO_2026-11-22.md) passed mixer tests, while WASAPI endpoint was **skipped** without a real device ([CI 44963657150](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963657150)). [AnyXboxX new pinned upstream](ANYXBOXX_NATIVE_BUILD_GATE.md) built and passed 4 original Win32 PE tests ([CI 44963894313](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44963894313)), without verifying its shader/game path. See the [second-pass upstream audit](UPSTREAM_SECOND_PASS_2026-11-22.md) for new license/compatibility boundaries.
+
+
 ## Native deployment contract
 
 - **Windows**: native x64 process and instruction execution, Win32 services, D3D12/DXGI as primary renderer, optional Vulkan renderer, host input/audio/network/filesystem, correct desktop shader/assets/saves semantics. Xbox ABI/API/command packets still need independent translation.

@@ -16,6 +16,8 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 - `fixtures/wave_lanes_sm6.hlsl`, `fixtures/d3d12_wave_sm6.cpp` — source-built Shader Model 6 wave intrinsics **actually executed on WARP** and verified against CPU output.
 - `fixtures/win_memory_alias.cpp`, `fixtures/physical_page_cpu_model.cpp` — Win32 memory and independent page-identity/remapping model.
 - `fixtures/msvc_struct_return_abi.cpp` — native Windows x64 synthetic virtual struct-return ABI regression test.
+- `fixtures/command_record_cpu_model.cpp` — bounded synthetic graphics/DMA stream writer/parser with corruption and memory-safety guards (not real Xbox command records).
+- `tools/verify_anyxboxx_native.ps1` — exact-SHA independent external source build of an LGPL upstream native Windows launcher; does not execute it or copy binaries into this repository.
 - The SM6 fixture has distinct `warp` and vendor-checked `hardware` modes; the public runner passed WARP and correctly skipped unavailable AMD/NVIDIA/Intel hardware.
 - `src/pe_intake.cpp` also reports PE32+ named/ordinal exports and forwarded-export metadata with bounded tables, including checks against our own compiled DLL.
 - `docs/UPSTREAM_REVIEW_2026-11-22.md` — dated comparison of changes in seven upstream projects, with links and explicit proof gaps.
@@ -47,3 +49,5 @@ See [the native Windows end-state definition](docs/NATIVE_TARGET.md), [project l
 Research updates: [2026-11-22 upstream ABI/shader delta](docs/UPSTREAM_DELTA_2026-11-22.md). Exact upstream author claims and independently executed tests are recorded separately.
 
 Current watched branch-tip snapshot: [2026-11-22 upstream checkpoint](docs/UPSTREAM_CHECKPOINT_2026-11-22.md). Original SHA baselines retained separately; commit movement is not proof of game compatibility.
+
+Native upstream-source reproduction: [AnyXboxX clean-build gate](docs/ANYXBOXX_NATIVE_BUILD_GATE.md) and [independent Windows run](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44956507116). This confirms a public-source build only, not gameplay.

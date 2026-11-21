@@ -1,0 +1,39 @@
+name: Native Linux ELF Vulkan instance and graphics queue
+on:
+  pull_request:
+    paths:
+      - "fixtures/native-linux-vulkan/**"
+      - ".github/workflows/linux-vulkan-native.yml"
+  push:
+    branches: [main]
+    paths:
+      - "fixtures/native-linux-vulkan/**"
+      - ".github/workflows/linux-vulkan-native.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: linux-native-vk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-linux-vulkan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Ubuntu Vulkan SDK and Mesa packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libvulkan-dev libvulkan1 mesa-vulkan-drivers
+          dpkg-query -W libvulkan-dev libvulkan1 mesa-vulkan-drivers
+      - name: Compile native Linux x86-64 ELF
+        run: |
+          cmake -S fixtures/native-linux-vulkan -B build-native-vk -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-native-vk -j2
+      - name: Execute Vulkan logical device graphics queue smoke test
+        run: ctest --test-dir build-native-vk --output-on-failure -V

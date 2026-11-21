@@ -58,7 +58,8 @@ if ($RunSynthetic) {
     Remove-Item Env:ANYXBOXX_D3D12_XS -ErrorAction SilentlyContinue
     foreach ($case in @(
         @{ Name = "scarlett_pe_baseline"; Expected = 42 },
-        @{ Name = "scarlett_pe_imports"; Expected = 43 }
+        @{ Name = "scarlett_pe_imports"; Expected = 43 },
+        @{ Name = "scarlett_pe_gdk_shim"; Expected = 44 }
     )) {
         $name = [string]$case.Name
         $fixture = Join-Path $fixtureBuild ("Release/" + $name + ".exe")

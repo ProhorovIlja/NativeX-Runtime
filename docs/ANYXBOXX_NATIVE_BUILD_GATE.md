@@ -1,6 +1,6 @@
 # Independent native Windows upstream source-build acceptance
 
-This experiment builds the publicly available LooperSalty/AnyXboxX C++ native runtime from an exact Git SHA: c9a243270ceb309c15fe82b0b6b763ff29061d9e. Upstream is licensed LGPL-2.1-or-later, with separately licensed third-party components; sources remain in the separate upstream repository and are not imported into this MIT project.
+This experiment independently builds a pinned publicly available LooperSalty/AnyXboxX C++ native runtime from an exact Git SHA. Current source-build pin: **1a2e2e677c18e6ae4053eb84d4ff2395c538c108** (2026-11-21); the original 2026-11-22 proof used **c9a243270ceb309c15fe82b0b6b763ff29061d9e**. The upstream project changed its main license from **LGPL-2.1-or-later to GPL-3.0-or-later on 2026-11-21**; different third-party components keep their own licenses. No AnyXboxX source or binary is imported into this MIT repository, and distributing a combined derivative would require an explicit compatibility/license review.
 
 The PowerShell script tools/verify_anyxboxx_native.ps1 creates a fresh temporary directory, fetches only the pinned commit, verifies its full SHA, configures runtime/CMakeLists.txt for Windows x64, and compiles the source. It requires the native launcher and the five named C++ shim DLLs to exist after build. In build-only mode it does not execute the generated EXE; with -RunSynthetic, it runs ONLY our three source-built PE32+ probes with strict exit-code checks and 10-second watchdogs. It never runs a retail title and does not upload binary artifacts.
 
@@ -33,3 +33,12 @@ GitHub warned that checkout@v4 used deprecated Node.js 20; the workflow was move
 - `scarlett_pe_gdk_shim.exe`: returned **44**, checking this upstream's own xgameruntime.dll exports (device type 7, S_OK initialization, expected E_NOINTERFACE/null output on unsupported interface request).
 
 Every process ran with a 10-second watchdog. These are **source-built Win32 fixtures**, not Xbox Series game binaries, PC GDK rendering demos, console GDKX interfaces or a GTA VI startup. The full test scripts and C sources are in [PR #25](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/25).
+
+
+## Updated upstream candidate — 2026-11-21 commit
+
+- Public repo [LooperSalty/AnyXboxX](https://github.com/LooperSalty/AnyXboxX) commit [`1a2e2e677c18`](https://github.com/LooperSalty/AnyXboxX/commit/1a2e2e677c18e6ae4053eb84d4ff2395c538c108), source pin in `tools/verify_anyxboxx_native.ps1`.
+- Upstream [PR #77](https://github.com/LooperSalty/AnyXboxX/pull/77) updates experimental **RDNA2 vector-memory operand disassembly** for MUBUF, MTBUF, FLAT/GLOBAL/SCRATCH and MIMG, backed by generated LLVM-derived test data. Author's PR claims 319 passed and 8 skipped upstream tests, with one MIMG ambiguous encoding and missing VOP3P golden vectors. These are **upstream assertions**, not independent verification of game rendering or RDNA2 shader translation.
+- `THIRD_PARTY.md` in the new upstream commits explicitly documents a transition from LGPL-2.1-or-later to **GPL-3.0-or-later**, along with GPL-3.0 Leonida components. A source-built external runtime in isolated CI does not itself mix licenses. **Do not vendor or merge GPL-covered upstream implementation into an MIT-only distributable without proper licensing decisions.**
+- The Windows gate still requires the native x64 launcher, five shim DLL files and our own four original PE32+ probes returning 42/43/44/45. This tests regression and elementary Win32/GDK-style API execution, **not** full RDNA2 ISA coverage, Xbox D3D12.X command submission, real title loading or GTA VI.
+

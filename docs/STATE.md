@@ -3,9 +3,10 @@
 - Public clean repository: **yes**, new independent history.
 - Imported proprietary assets/executables: **none**.
 - Runnable Xbox Series title or commercial game: **not demonstrated**.
-- Original read-only PE32+ inspector: synthetic local test exists; public CI pending.
-- Windows-native host capability probe: public Windows CI pending.
-- GitHub revision/discovery tools: public API metadata and synthetic unit tests.
+- Original read-only PE32+ inspector: Linux/Windows CI passed for baseline synthetic tests. Extended import/TLS/relocation metadata is under a separate draft PR.
+- Windows-native host capability probe: public Windows x64 MSVC CI passed.
+- GitHub revision/discovery tools: offline fixture and Linux CI passed.
+- Native Windows named/ordinal DLL loader fixture: source-built test passed in Windows CI.
 - Full Xbox GDK/D3D12.X replacement: **not implemented in this project**.
 - Shader translation / GPU correctness: **not implemented in this project**.
 - Performance and gameplay claims: **none**.

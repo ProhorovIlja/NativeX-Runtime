@@ -6,7 +6,7 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 
 ## What is here
 
-- `src/pe_intake.cpp` — original read-only PE32+ import and section metadata inspection; no code execution.
+- `src/pe_intake.cpp` — original read-only PE32+ import/section, delayed-import, TLS-directory and relocation-block inspection; no code execution.
 - `src/platform_probe.cpp` — Windows-only probe of system graphics/media/input API availability.
 - `tools/radar.py` — read-only GitHub revision scanner against [pinned SHAs](sources/upstreams.json).
 - `tools/discover.py` — search for relevant new public projects/forks; candidates remain unreviewed.

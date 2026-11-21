@@ -23,7 +23,7 @@ class Radar(unittest.TestCase):
         row=self.rows[0]
         result=radar.scan(row,{row['repository']:{'head_sha':'f'*40 if row['baseline_sha']!='f'*40 else 'a'*40}})
         self.assertEqual(result['status'],'new-head-since-baseline')
-        self.assertIn('not a verified',radar.report([row],[result],'today'))
+        self.assertIn('playable title',radar.report([row],[result],'today'))
     def test_missing_is_unknown(self):
         self.assertEqual(radar.scan(self.rows[0],{})['status'],'unavailable')
     def test_repo_input_validation(self):

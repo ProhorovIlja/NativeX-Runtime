@@ -29,11 +29,11 @@ jobs:
       - name: Install Ubuntu Vulkan SDK and Mesa packages
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libvulkan-dev libvulkan1 mesa-vulkan-drivers
-          dpkg-query -W libvulkan-dev libvulkan1 mesa-vulkan-drivers
+          sudo apt-get install -y --no-install-recommends libvulkan-dev libvulkan1 mesa-vulkan-drivers glslang-tools
+          dpkg-query -W libvulkan-dev libvulkan1 mesa-vulkan-drivers glslang-tools
       - name: Compile native Linux x86-64 ELF
         run: |
           cmake -S fixtures/native-linux-vulkan -B build-native-vk -DCMAKE_BUILD_TYPE=Release
           cmake --build build-native-vk -j2
-      - name: Execute Vulkan logical device graphics queue smoke test
+      - name: Execute Vulkan device queue and SPIR-V compute dispatch with CPU readback
         run: ctest --test-dir build-native-vk --output-on-failure -V

@@ -1,0 +1,4 @@
+LIBRARY scarlett_abi_fixture
+EXPORTS
+    ScarlettAdd @1
+    ScarlettMultiply @7

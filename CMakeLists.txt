@@ -20,3 +20,21 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   endif()
   add_test(NAME native_windows_host_selftest COMMAND win_native_probe --self-test)
 endif()
+
+
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  # Source-built DLL with two exported functions; the host loads it by name
+  # and by ordinal to verify native Windows x64 loader / ABI semantics.
+  add_library(scarlett_abi_fixture SHARED
+    fixtures/abi_library.cpp
+    fixtures/abi_exports.def)
+  target_compile_features(scarlett_abi_fixture PRIVATE cxx_std_17)
+  add_executable(scarlett_abi_host_test fixtures/abi_host_test.cpp)
+  target_compile_features(scarlett_abi_host_test PRIVATE cxx_std_17)
+  if(MSVC)
+    target_compile_options(scarlett_abi_host_test PRIVATE /W4 /WX /permissive-)
+    target_compile_options(scarlett_abi_fixture PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_loader_named_ordinal_exports
+    COMMAND scarlett_abi_host_test "$<TARGET_FILE:scarlett_abi_fixture>")
+endif()

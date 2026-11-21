@@ -55,9 +55,9 @@ struct VkObjects {
 std::vector<std::uint32_t> load_spirv(const char* path){
     std::ifstream in(path,std::ios::binary|std::ios::ate);
     if(!in)throw std::runtime_error("SPIR-V shader missing");
-    const auto end=in.tellg();
+    const std::streamoff end=static_cast<std::streamoff>(in.tellg());
     if(end<=0||end>static_cast<std::streamoff>(1024*1024)||
-       end%static_cast<std::streamoff>(4)!=0)
+       end%4!=0)
        throw std::runtime_error("Invalid SPIR-V file length");
     const auto bytes=static_cast<std::size_t>(end);
     std::vector<std::uint32_t> data(bytes/4);

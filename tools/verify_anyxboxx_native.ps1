@@ -1,6 +1,6 @@
-# Independent native-source build only. Does not launch a title or generated binary.
+# Pinned source build, optionally execute ONLY our own source-built PE32+ test fixtures.
 [CmdletBinding()]
-param([string]$WorkRoot = "")
+param([string]$WorkRoot = "", [switch]$RunSynthetic)
 $ErrorActionPreference = "Stop"
 if ($env:OS -ne "Windows_NT") { throw "Requires Windows x64" }
 $sha = "c9a243270ceb309c15fe82b0b6b763ff29061d9e"
@@ -43,6 +43,51 @@ foreach ($name in $names) {
 }
 $size = (Get-Item -LiteralPath $binary).Length
 Write-Host "SOURCE_BUILD_PASS sha=$sha launcher_bytes=$size expected_dlls=5"
+
+if ($RunSynthetic) {
+    $fixtureSource = Join-Path (Split-Path -Parent $PSScriptRoot) "fixtures/native-pe-exec"
+    $fixtureBuild = Join-Path $WorkRoot "synthetic-pe-build"
+    & cmake -S $fixtureSource -B $fixtureBuild -A x64
+    if ($LASTEXITCODE -ne 0) { throw "Synthetic PE CMake configure failed" }
+    & cmake --build $fixtureBuild --config Release --parallel 2
+    if ($LASTEXITCODE -ne 0) { throw "Synthetic PE build failed" }
+
+    # Ensure the external loader uses its own public-source runtime DLLs.
+    $env:ANYXBOXX_SYSTEM_RUNTIME = "0"
+    Remove-Item Env:ANYXBOXX_TOMBOX_DIR -ErrorAction SilentlyContinue
+    Remove-Item Env:ANYXBOXX_D3D12_XS -ErrorAction SilentlyContinue
+    foreach ($case in @(
+        @{ Name = "scarlett_pe_baseline"; Expected = 42 },
+        @{ Name = "scarlett_pe_imports"; Expected = 43 }
+    )) {
+        $name = [string]$case.Name
+        $fixture = Join-Path $fixtureBuild ("Release/" + $name + ".exe")
+        if (-not (Test-Path -LiteralPath $fixture)) { throw "Missing original fixture $name" }
+        $info = [Diagnostics.ProcessStartInfo]::new()
+        $info.FileName = $binary
+        $info.ArgumentList.Add($fixture)
+        $info.WorkingDirectory = Split-Path -Parent $fixture
+        $info.UseShellExecute = $false
+        $child = [Diagnostics.Process]::new()
+        $child.StartInfo = $info
+        if (-not $child.Start()) { throw "Unable to start pinned native loader" }
+        try {
+            if (-not $child.WaitForExit(10000)) {
+                $child.Kill($true)
+                $child.WaitForExit()
+                throw "Synthetic executable $name exceeded 10-second watchdog"
+            }
+            $status = $child.ExitCode
+        } finally {
+            $child.Dispose()
+        }
+        if ($status -ne [int]$case.Expected) {
+            throw "NATIVE_PE_FAIL probe=$name expected=$($case.Expected) actual=$status"
+        }
+        Write-Host "NATIVE_PE_PASS probe=$name expected_exit=$($case.Expected) actual_exit=$status"
+    }
+}
+
 if ($env:GITHUB_STEP_SUMMARY) {
     @(
         "## Independent native C++ source build",
@@ -53,6 +98,6 @@ if ($env:GITHUB_STEP_SUMMARY) {
         "",
         "Expected DLL files: 5 present",
         "",
-        "**Build-only evidence. Neither the launcher nor a game was executed.**"
+        "**No retail game was executed. Original source-built PE fixtures run only when -RunSynthetic is set.**"
     ) | Out-File -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 }

@@ -3,7 +3,7 @@
 - Public clean repository: **yes**, new independent history.
 - Imported proprietary assets/executables: **none**.
 - Runnable Xbox Series title or commercial game: **not demonstrated**.
-- Original read-only PE32+ inspector: Linux/Windows CI passed for baseline synthetic tests. Extended import/TLS/relocation metadata is under a separate draft PR.
+- Original read-only PE32+ inspector: Linux/Windows CI passed for baseline synthetic tests. Extended import/TLS/relocation metadata and corruption rejection passed on Linux and Windows in public CI.
 - Windows-native host capability probe: public Windows x64 MSVC CI passed.
 - GitHub revision/discovery tools: offline fixture and Linux CI passed.
 - Native Windows named/ordinal DLL loader fixture: source-built test passed in Windows CI.

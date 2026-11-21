@@ -22,7 +22,24 @@ struct Preferences {
     Storage storage = Storage::Auto;
     Neural neural = Neural::Off;
 };
+// An SDK adapter must be verified against the *selected* graphics API.
+// A generic provider-ready flag alone never proves D3D12/Vulkan integration.
+struct ApiIntegration {
+    bool fsr_sr = false;
+    bool dlss_sr = false;
+    bool xess_sr = false;
+    bool fsr_fg = false;
+    bool dlss_fg = false;
+    bool xess_fg = false;
+    bool reflex = false;
+    bool anti_lag2 = false;
+    bool xell = false;
+    bool neural_dlss5 = false;
+};
+
 struct Capabilities {
+    ApiIntegration d3d12{};
+    ApiIntegration vulkan{};
     Os os = Os::Windows;
     Vendor vendor = Vendor::Unknown;
     // These mean verified *app* renderer implementations, not installed DLLs.

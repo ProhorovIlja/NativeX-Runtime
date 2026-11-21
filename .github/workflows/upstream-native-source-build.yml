@@ -1,0 +1,27 @@
+name: Pinned public native upstream source build
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/upstream-native-source-build.yml"
+      - "tools/verify_anyxboxx_native.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinned-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  anyxboxx-clean-windows-source:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Compile exact pinned public source, without launching game binaries
+        shell: pwsh
+        run: .\tools\verify_anyxboxx_native.ps1

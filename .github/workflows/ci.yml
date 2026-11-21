@@ -48,26 +48,18 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - name: Discover Windows SDK DXC (optional, no downloads)
+      - name: Discover installed Windows SDK DXC (optional SM6 test)
         shell: pwsh
         run: |
-          $kits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-          $found = @(Get-ChildItem -LiteralPath $kits -Filter dxc.exe -File -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.FullName -match '\\x64\\dxc\.exe
-        run: cmake -S . -B build -A x64
-      - name: Compile C++17 native programs
-        run: cmake --build build --config Release
-      - name: Run synthetic PE32+ and host fixture tests
-        run: ctest --test-dir build -C Release --output-on-failure
-      - name: Print Windows host prerequisites (not game compatibility)
-        run: .\build\Release\win_native_probe.exe
- } |
-            Sort-Object FullName -Descending)
-          if ($found.Count -gt 0) {
-            "SCARLETT_DXC_PATH=$($found[0].FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-            Write-Host "Windows SDK DXC found"
+          $root = 'C:\Program Files (x86)\Windows Kits\10\bin'
+          $items = @(Get-ChildItem -LiteralPath $root -Filter dxc.exe -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Directory.Name -eq 'x64' } | Sort-Object FullName -Descending)
+          if ($items.Count -gt 0) {
+            $path = $items[0].FullName
+            Add-Content -Path $env:GITHUB_ENV -Value "SCARLETT_DXC_PATH=$path"
+            Write-Host 'Installed Windows SDK DXC found'
           } else {
-            Write-Host "No installed DXC; optional SM6 wave test omitted"
+            Write-Host 'No SDK DXC: optional SM6 test will not be registered'
           }
       - name: Configure MSVC x64
         run: cmake -S . -B build -A x64

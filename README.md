@@ -57,3 +57,6 @@ Public research inventory now tracks 19 source repositories, including Microsoft
 Actual independent native PE32+ execution through the pinned upstream (three original CRT-free test programs returned expected exit codes **42 / 43 / 44**): [verified Windows CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44957418968) and [fixture sources](fixtures/native-pe-exec). This is not a GDK title or commercial-game boot.
 
 Native-loaded desktop D3D12 smoke: [PR #27](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/27) and [CI result](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44958262954), validating WARP device, queue and fence from the original PE's mapped entrypoint; **no Xbox D3D12.X rendering yet**.
+
+
+Future native Windows + Linux graphics/IO/audio/latency work, optional FSR/DLSS/XeSS, Reflex/Anti-Lag2/XeLL, DLSS 5 neural research, DirectStorage and native io_uring: [technology architecture](docs/NATIVE_PC_TECH_STACK.md). This branch adds a source-built fail-closed cross-platform feature policy and a host library inventory; **no vendor SDK integration is yet claimed**.

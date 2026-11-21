@@ -7,7 +7,7 @@
 - Test native Windows named/ordinal DLL exports (**passing on standard public CI**).
 - Run deterministic Linux and Windows CI tests on synthetic fixtures.
 - Record upstream issues and reproducibility blockers with direct links.
-- Independent pinned public-source Windows x64 CMake/MSVC build of the AnyXboxX launcher and five shim DLLs **passed**; actual open-source GDK sample execution and console D3D12.X correctness still pending.
+- Independent pinned public-source Windows x64 CMake/MSVC build of AnyXboxX launcher and five shim DLLs **passed**; followed by **3 successful original PE32+ native execution probes** (entry, Win32 imports, limited shim exports) on standard Windows CI. Actual public GDK sample rendering and Xbox D3D12.X correctness remain pending.
 
 ## M1 — generic Windows compatibility experiments
 - PE32+ source-built metadata inventory: ordinary/delayed imports, TLS presence, relocs, exports, ordinals and forwarders (**passing**); **actual TLS callback/unwind loader behavior is still pending**.

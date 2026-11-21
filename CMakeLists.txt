@@ -85,3 +85,12 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_compiled_pe_exports.py"
     "$<TARGET_FILE:pe_intake>" "$<TARGET_FILE:scarlett_abi_fixture>")
 endif()
+
+add_executable(physical_page_cpu_model fixtures/physical_page_cpu_model.cpp)
+target_compile_features(physical_page_cpu_model PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(physical_page_cpu_model PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(physical_page_cpu_model PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME physical_page_cpu_reference COMMAND physical_page_cpu_model)

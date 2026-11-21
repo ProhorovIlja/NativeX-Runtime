@@ -15,6 +15,7 @@
 - Source-built HLSL Shader Model 6 wave ops executed on D3D12 WARP with CPU readback (**passing**); AMD/NVIDIA/Intel hardware, native RDNA2 ISA and Shader Model 6.6 compatibility pending.
 - Optional physical AMD/NVIDIA/Intel adapter selection and SM6 differential **implemented**; no suitable GPU on public runner, correctly SKIPPED, hardware acceptance still pending.
 - Synthetic MSVC x64 COM vtable/16-byte hidden struct-return **passing**; title-specific Xbox D3D12.X method ABI and record format still unknown.
+- Native-loaded original PE32+ → desktop D3D12 WARP device/queue/fence proof **passed** on free Windows CI; rendering, Present, actual D3D12.X and hardware-specific RDNA2 pending.
 - D3D12.X-to-D3D12 interface mapping with source-built stand-ins; synthetic command-record writer/parser bounds tests added (NOT actual Xbox formats); prioritize inline console command-record layout and DMA lists, not generic PC DLL forwarding.
 - GPU wave32/64, barriers, descriptors, RDNA2 opcode correctness on synthetic workloads.
 - MSVC/Clang cross-checks and Windows 10/11 compatibility.

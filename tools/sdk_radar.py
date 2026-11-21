@@ -11,8 +11,8 @@ import sys
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\\Z")
-TAG = re.compile(r"[A-Za-z0-9_.+/-]{1,128}\\Z")
+REPOSITORY = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+TAG = re.compile(r"[A-Za-z0-9_.+/-]{1,128}\Z")
 CATEGORIES = {"upscaling-frame-generation", "upscaling-frame-generation-latency",
               "upscaling-frame-generation-latency-neural-interface",
               "linux-compat-d3d12-to-vulkan", "windows-asset-io",

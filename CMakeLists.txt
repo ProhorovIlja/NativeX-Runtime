@@ -183,3 +183,16 @@ foreach(target native_asset_stream native_asset_stream_tests)
 endforeach()
 add_test(NAME native_asset_stream_exact_reads_and_errors COMMAND native_asset_stream_tests)
 set_tests_properties(native_asset_stream_exact_reads_and_errors PROPERTIES TIMEOUT 20)
+
+# Real D3D12 rasterization (original VS/PS) and CPU texture readback on WARP.
+# This does not exercise a window/swapchain Present or Xbox D3D12.X.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(d3d12_warp_raster_readback fixtures/d3d12_warp_raster_readback.cpp)
+  target_compile_features(d3d12_warp_raster_readback PRIVATE cxx_std_17)
+  target_link_libraries(d3d12_warp_raster_readback PRIVATE d3d12 dxgi d3dcompiler)
+  if(MSVC)
+    target_compile_options(d3d12_warp_raster_readback PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME d3d12_warp_raster_readback COMMAND d3d12_warp_raster_readback)
+  set_tests_properties(d3d12_warp_raster_readback PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
+endif()

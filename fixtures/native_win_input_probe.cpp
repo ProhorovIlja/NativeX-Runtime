@@ -7,6 +7,7 @@
 #include "native_input_core.hpp"
 #include <array>
 #include <cstddef>
+#include <cstring>
 #include <cstdint>
 #include <iostream>
 
@@ -223,14 +224,7 @@ int run(bool interactive) {
 }
 } // namespace
 int main(int argc,char** argv) {
-    const bool interactive=argc==2 &&
-        argv[1][0]=='-' && argv[1][1]=='-' &&
-        argv[1][2]=='i' && argv[1][3]=='n' &&
-        argv[1][4]=='t' && argv[1][5]=='e' &&
-        argv[1][6]=='r' && argv[1][7]=='a' &&
-        argv[1][8]=='c' && argv[1][9]=='t' &&
-        argv[1][10]=='i' && argv[1][11]=='v' &&
-        argv[1][12]=='e' && argv[1][13]=='\0';
+    const bool interactive=argc==2 && std::strcmp(argv[1],"--interactive")==0;
     if(argc!=1 && !interactive) {
         std::cerr<<"Usage: native_win_input_probe [--interactive]\n";return 2;
     }

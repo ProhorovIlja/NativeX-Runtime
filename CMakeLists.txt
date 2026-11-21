@@ -79,3 +79,9 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_test(NAME native_memory_reserve_alias COMMAND win_memory_alias)
   set_tests_properties(native_memory_reserve_alias PROPERTIES TIMEOUT 15)
 endif()
+
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_test(NAME pe32plus_compiled_dll_exports
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_compiled_pe_exports.py"
+    "$<TARGET_FILE:pe_intake>" "$<TARGET_FILE:scarlett_abi_fixture>")
+endif()

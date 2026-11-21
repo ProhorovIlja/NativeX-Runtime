@@ -15,6 +15,8 @@ class PE {
   struct Section { uint32_t va, size, raw, len; };
   std::vector<Section> sections;
   std::vector<std::string> names, imports, delay_imports;
+  struct Export { std::string name; uint32_t ordinal; std::string forwarder; };
+  std::vector<Export> exports;
   uint32_t relocation_blocks=0;
   bool has_tls_directory=false;
   uint64_t image_base = 0;
@@ -38,12 +40,15 @@ class PE {
     throw std::runtime_error("unmapped RVA");
   }
   std::string module(uint32_t name) const {
-    std::string s; size_t p=rva(name,1);
-    for(unsigned i=0;i<256;i++){need(p,1);unsigned c=b[p++];if(!c)return s;
-      if(c<32||c>126)throw std::runtime_error("non-ASCII module name");
+    std::string s;
+    for(uint64_t i=0;i<256;i++){
+      if(uint64_t(name)+i>UINT32_MAX)throw std::runtime_error("name RVA overflow");
+      unsigned c=b[rva(uint32_t(uint64_t(name)+i),1)];
+      if(!c)return s;
+      if(c<32||c>126)throw std::runtime_error("non-ASCII PE name");
       s.push_back(char(c));
     }
-    throw std::runtime_error("unterminated import name");
+    throw std::runtime_error("unterminated PE name");
   }
   static std::string quote(const std::string& s){
     std::ostringstream out;out<<'"';
@@ -82,6 +87,38 @@ public:
       if(optlen<112+8*(index+1))throw std::runtime_error("truncated PE data directory");
       return {u32(opt+112+8*index),u32(opt+116+8*index)};
     };
+    // Export directory: name/ordinal/forwarder metadata only, never resolve or load it.
+    const auto exp=dir(0);
+    if(exp.first && exp.second){
+      if(exp.second<40)throw std::runtime_error("short export directory");
+      const size_t p=rva(exp.first,40);
+      const uint32_t base=u32(p+16), fn_count=u32(p+20), name_count=u32(p+24);
+      const uint32_t fn_rva=u32(p+28), names_rva=u32(p+32), ord_rva=u32(p+36);
+      if(fn_count>8192 || name_count>4096 || name_count>fn_count ||
+         uint64_t(base)+fn_count>uint64_t(UINT32_MAX)+1)
+        throw std::runtime_error("unsupported export counts");
+      size_t functions=0, name_table=0, ordinal_table=0;
+      if(fn_count){
+        if(!fn_rva)throw std::runtime_error("missing export function table");
+        functions=rva(fn_rva,uint64_t(fn_count)*4);
+      }
+      if(name_count){
+        if(!names_rva || !ord_rva)throw std::runtime_error("missing export name tables");
+        name_table=rva(names_rva,uint64_t(name_count)*4);
+        ordinal_table=rva(ord_rva,uint64_t(name_count)*2);
+      }
+      for(uint32_t i=0;i<name_count;i++){
+        const uint16_t index=u16(ordinal_table+uint64_t(i)*2);
+        if(index>=fn_count)throw std::runtime_error("invalid export ordinal index");
+        const uint32_t target=u32(functions+uint64_t(index)*4);
+        const uint32_t export_name_rva=u32(name_table+uint64_t(i)*4);
+        const uint32_t ordinal=uint32_t(uint64_t(base)+index);
+        // Forwarded exports point into the export-directory RVA range.
+        const bool forwarded=uint64_t(target)>=exp.first &&
+            uint64_t(target)<uint64_t(exp.first)+exp.second;
+        exports.push_back({module(export_name_rva),ordinal,forwarded?module(target):std::string{}});
+      }
+    }
     if(u32(opt+108)>=2){
       uint32_t addr=u32(opt+120),length=u32(opt+124);
       if(addr&&length){
@@ -141,6 +178,14 @@ public:
     for(size_t i=0;i<imports.size();i++)out<<(i?",":"")<<quote(imports[i]);
     out<<"],\"delay_import_modules\":[";
     for(size_t i=0;i<delay_imports.size();i++)out<<(i?",":"")<<quote(delay_imports[i]);
+    out<<"],\"exports\":[";
+    for(size_t i=0;i<exports.size();i++){
+      if(i)out<<",";
+      out<<"{\"name\":"<<quote(exports[i].name)<<",\"ordinal\":"<<exports[i].ordinal
+         <<",\"forwarder\":";
+      if(exports[i].forwarder.empty())out<<"null";else out<<quote(exports[i].forwarder);
+      out<<"}";
+    }
     out<<"],\"relocation_blocks\":"<<relocation_blocks
        <<",\"has_tls_directory\":"<<(has_tls_directory?"true":"false")
        <<",\"section_names\":[";

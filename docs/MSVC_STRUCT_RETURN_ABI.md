@@ -1,6 +1,6 @@
 # Synthetic MSVC x64 hidden struct-return ABI test
 
-The Windows x64 ABI has a subtle problem for C++ virtual methods returning aggregates. A 16-byte `AllocationInfo`-shaped object is returned via a caller-allocated **hidden result pointer** in a compiler-specific position relative to the `this` pointer in the raw call convention. Incorrect function signatures can overwrite the object vtable instead of filling the result structure.
+The Windows x64 ABI has a subtle problem for C++ virtual methods returning aggregates. In this generated MSVC x64 virtual method, a 16-byte `AllocationInfo`-shaped object is returned via a caller-allocated **hidden result pointer after `this`** in the raw call signature. This order was established by executable CI, not assumed from an Xbox method name. Incorrect function signatures can overwrite the object vtable instead of filling the result structure.
 
 This source-built C++ test creates a mock virtual interface with 25 dummy methods and a **synthetic** slot 25, then compares:
 
@@ -14,4 +14,4 @@ Both must return exactly the expected size and alignment, increment the same cal
 The test does not resolve missing D3D12.X graphics command records or establish game compatibility. All source is original, without importing XCL's GPL-2.0-only implementation.
 
 
-**ABI verification note:** the first attempt using an `out,self` raw signature failed the MSVC Windows CTest (without crashing). A follow-up experiment tests `self,out` ordering and emits both raw and C++ values on mismatch. The correct call convention will only be documented as confirmed after a successful CI run. This is precisely why console-to-PC method signatures must not be assumed from a method name.
+**ABI verification note:** the first attempt using an `out,self` raw signature failed the MSVC Windows CTest (without crashing). A follow-up experiment tests `self,out` ordering and emits both raw and C++ values on mismatch. The follow-up test using `self,out` ordering **passed** Microsoft Visual C++ on the public Windows x64 runner ([run 44954902495](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44954902495)): native virtual dispatch and raw vtable-call results matched, with the object canaries intact. The failed `out,self` experiment remains documented so future code does not repeat the same mistaken assumption. This is precisely why console-to-PC method signatures must not be assumed from a method name.

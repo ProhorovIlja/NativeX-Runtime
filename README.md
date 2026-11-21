@@ -6,6 +6,13 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 
 ## What is here
 
+
+### Verified Windows/Linux native progress — 2026-11-22
+
+Source-built and CI-tested independent components include [Linux native Vulkan SPIR-V compute and CPU readback](docs/NATIVE_LINUX_VULKAN_COMPUTE_2026-11-22.md) ([PR #44](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/44)), [Win32 IOCP real asynchronous file I/O](docs/NATIVE_WIN_IOCP_DISK_2026-11-22.md) ([PR #45](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/45)) and a [portable native stereo audio mixer with optional Windows WASAPI endpoint probe](docs/NATIVE_PC_AUDIO_2026-11-22.md) ([PR #46](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/46)). The audio hardware probe was skipped on headless CI. The latest external [AnyXboxX source regression build](docs/ANYXBOXX_NATIVE_BUILD_GATE.md) passed our four original PE32+ tests ([PR #47](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/47)); that upstream has changed to GPL-3.0-or-later, so its source is not copied into this MIT repository. These verify small native desktop building blocks, **not a working Xbox game, its audio, its rendering or GTA VI**. [Updated upstream research and evidence](docs/UPSTREAM_SECOND_PASS_2026-11-22.md).
+
+
+
 - `src/pe_intake.cpp` — original read-only PE32+ import/section, delayed-import, TLS-directory and relocation-block inspection; no code execution.
 - `src/platform_probe.cpp` — Windows-only probe of system graphics/media/input API availability.
 - `tools/radar.py` — read-only GitHub revision scanner against [pinned SHAs](sources/upstreams.json).

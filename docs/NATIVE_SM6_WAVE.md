@@ -5,3 +5,10 @@ A source-built HLSL `cs_6_0` shader records `WaveGetLaneIndex`, `WaveGetLaneCoun
 A trusted Windows SDK `dxc.exe` is required. CI searches installed Windows Kits without downloads. If absent, CMake explicitly omits the test; if WARP lacks WaveOps or Shader Model 6, CTest marks it **SKIPPED (77)**. Failing shader creation or output comparison is a test failure.
 
 A passing test proves only **desktop Windows D3D12 SM6 WaveOps on WARP**, not Xbox RDNA2 code, native hardware wave64, D3D12.X or a running retail title. NVIDIA/AMD/Intel hardware differential checks remain future work. Source references: [Leonida #94](https://github.com/ItsNotRexed/Leonida/issues/94), [Leonida PR #204](https://github.com/ItsNotRexed/Leonida/pull/204), [D3D12_OPTIONS1](https://learn.microsoft.com/en-us/windows/win32/api/d3d12/ns-d3d12-d3d12_feature_data_d3d12_options1).
+
+
+## Physical adapter mode
+
+Run `d3d12_wave_sm6 <path.dxil> hardware` to enumerate DXGI adapters while excluding software devices. Only devices supporting D3D12 Shader Model 6.0 and WaveOps enter the same source-built dispatch and CPU readback verification as WARP. Output includes vendor/device IDs, group count and backend. On machines without a compatible hardware adapter the test returns 77, recorded as **SKIPPED** by CTest — never as a hardware pass.
+
+Windows CI runs WARP and hardware tests separately. Standard public runners may not expose a suitable hardware GPU; that is a limitation, not a failure of the native port or proof of hardware support.

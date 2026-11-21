@@ -13,6 +13,7 @@
 #include <map>
 #include <vector>
 #include <fstream>
+#include <string>
 using Microsoft::WRL::ComPtr;
 struct WaveRecord { std::uint32_t lane,count,leader,sum; };
 static_assert(sizeof(WaveRecord)==16,"unexpected structured UAV stride");
@@ -43,28 +44,63 @@ static D3D12_HEAP_PROPERTIES heap_props(D3D12_HEAP_TYPE type){
     return h;
 }
 int main(int argc,char** argv){
-    if(argc!=2){std::cerr<<"usage: d3d12_wave_sm6 <own compiled DXIL file>\n";return 2;}
+    if(argc!=2 && argc!=3){std::cerr<<"usage: d3d12_wave_sm6 <own DXIL> [warp|hardware]\n";return 2;}
+    const std::string mode=argc==3?argv[2]:"warp";
+    if(mode!="warp" && mode!="hardware")return failure("invalid adapter mode",E_INVALIDARG);
     constexpr uint32_t count=64;
     constexpr uint64_t bytes=count*sizeof(WaveRecord);
     ComPtr<IDXGIFactory4> factory;
     HRESULT hr=CreateDXGIFactory2(0,IID_PPV_ARGS(&factory));
     if(FAILED(hr)){std::cout<<"SKIP: DXGI factory unavailable\n";return 77;}
     ComPtr<IDXGIAdapter> adapter;
-    if(FAILED(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)))){
-        std::cout<<"SKIP: WARP adapter unavailable\n";return 77;
-    }
     ComPtr<ID3D12Device> device;
-    if(FAILED(D3D12CreateDevice(adapter.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&device)))){
-        std::cout<<"SKIP: D3D12 WARP not supported\n";return 77;
+    if(mode=="warp"){
+        if(FAILED(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter)))){
+            std::cout<<"SKIP: WARP adapter unavailable\n";return 77;
+        }
+        if(FAILED(D3D12CreateDevice(adapter.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&device)))){
+            std::cout<<"SKIP: D3D12 WARP unavailable\n";return 77;
+        }
+    }else{
+        // No software fallback: otherwise a CI pass would wrongly claim hardware validation.
+        for(UINT i=0;i<128;++i){
+            ComPtr<IDXGIAdapter1> candidate;
+            const HRESULT status=factory->EnumAdapters1(i,&candidate);
+            if(status==DXGI_ERROR_NOT_FOUND)break;
+            if(FAILED(status) || !candidate)continue;
+            DXGI_ADAPTER_DESC1 desc{};
+            if(FAILED(candidate->GetDesc1(&desc)) ||
+               (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE))continue;
+            ComPtr<ID3D12Device> probe;
+            if(FAILED(D3D12CreateDevice(candidate.Get(),D3D_FEATURE_LEVEL_11_0,
+                                        IID_PPV_ARGS(&probe))))continue;
+            D3D12_FEATURE_DATA_D3D12_OPTIONS1 options{};
+            D3D12_FEATURE_DATA_SHADER_MODEL sm{D3D_SHADER_MODEL_6_0};
+            if(FAILED(probe->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1,
+                                                 &options,sizeof(options))) ||
+               !options.WaveOps ||
+               FAILED(probe->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL,&sm,sizeof(sm))) ||
+               sm.HighestShaderModel<D3D_SHADER_MODEL_6_0)continue;
+            if(FAILED(candidate.As(&adapter)))continue;
+            device=probe;
+            break;
+        }
+        if(!device){
+            std::cout<<"SKIP: no physical GPU supporting D3D12 SM6 WaveOps\n";
+            return 77;
+        }
     }
-
+    ComPtr<IDXGIAdapter1> descriptor_adapter;
+    DXGI_ADAPTER_DESC1 descriptor{};
+    if(SUCCEEDED(adapter.As(&descriptor_adapter)))
+        descriptor_adapter->GetDesc1(&descriptor);
     D3D12_FEATURE_DATA_D3D12_OPTIONS1 wave{};
     if(FAILED(device->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS1,&wave,sizeof(wave)))
-       || !wave.WaveOps){std::cout<<"SKIP: WARP does not support wave operations\n";return 77;}
+       || !wave.WaveOps){std::cout<<"SKIP: selected adapter lacks wave operations\n";return 77;}
     D3D12_FEATURE_DATA_SHADER_MODEL model{D3D_SHADER_MODEL_6_0};
     if(FAILED(device->CheckFeatureSupport(D3D12_FEATURE_SHADER_MODEL,&model,sizeof(model)))
        || model.HighestShaderModel<D3D_SHADER_MODEL_6_0){
-        std::cout<<"SKIP: WARP does not support Shader Model 6.0\n";return 77;
+        std::cout<<"SKIP: selected adapter lacks Shader Model 6.0\n";return 77;
     }
     std::ifstream shader_file(argv[1],std::ios::binary|std::ios::ate);
     if(!shader_file)return failure("DXIL file open",E_FAIL);
@@ -187,8 +223,10 @@ int main(int argc,char** argv){
                 return failure("WaveActiveSum mismatch",E_FAIL);
     }
     std::cout<<"{\"kind\":\"native-d3d12-sm6-wave\","
-               "\"backend\":\"WARP\",\"threads_checked\":64,"
+               "\"backend\":\"" << mode << "\",\"threads_checked\":64,"
                "\"waves_observed\":"<<waves.size()<<","
+               "\"vendor_id\":"<<descriptor.VendorId<<","
+               "\"device_id\":"<<descriptor.DeviceId<<","
                "\"wave_intrinsics_executed\":true,\"game_tested\":false,"
                "\"rdna2_machine_code_tested\":false}\n";
     return 0;

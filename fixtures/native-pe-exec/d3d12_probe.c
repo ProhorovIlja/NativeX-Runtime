@@ -3,9 +3,17 @@
 #define WIN32_LEAN_AND_MEAN
 #define CINTERFACE
 #define COBJMACROS
+#ifdef _MSC_VER
+// Microsoft's D3D12 C SDK headers use anonymous struct/union extensions.
+#pragma warning(push)
+#pragma warning(disable:4201)
+#endif
 #include <windows.h>
 #include <dxgi1_4.h>
 #include <d3d12.h>
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 int WINAPI ProbeEntry(void) {
     int result=45;

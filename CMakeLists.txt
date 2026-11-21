@@ -224,3 +224,17 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_foreground_raw_input_xinput
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 15)
 endif()
+
+# Offline-compilable Microsoft MIT GameInput v4 API + DualSense USB helper.
+# No SDK binary or proprietary runtime is vendored, and no device outputs are sent.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_gameinput4_probe fixtures/native_win_gameinput4_probe.cpp)
+  target_include_directories(native_win_gameinput4_probe PRIVATE
+    "${CMAKE_SOURCE_DIR}/third_party/microsoft-gameinput")
+  target_compile_features(native_win_gameinput4_probe PRIVATE cxx_std_17)
+  if(MSVC)
+    target_compile_options(native_win_gameinput4_probe PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME official_gameinput4_dualsense_source_contract COMMAND native_win_gameinput4_probe)
+  set_tests_properties(official_gameinput4_dualsense_source_contract PROPERTIES TIMEOUT 15)
+endif()

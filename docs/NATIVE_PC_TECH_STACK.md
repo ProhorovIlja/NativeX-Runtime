@@ -50,7 +50,7 @@ Microsoft DirectStorage is Windows-specific even though the companion GDeflate c
 
 ## Implemented here: original fail-closed selection policy
 
-The current branch implements a standalone source-built C++17 policy in src/pc_feature_policy.hpp and src/pc_feature_policy.cpp, with ten cross-platform deterministic scenarios in fixtures/pc_feature_policy_tests.cpp. This is a **config/decision unit**, not real FSR/DLSS/XeSS/Reflex/DirectStorage integration.
+The current main branch implements a standalone source-built C++17 policy in src/pc_feature_policy.hpp and src/pc_feature_policy.cpp, with ten cross-platform deterministic scenarios in fixtures/pc_feature_policy_tests.cpp. This is a **config/decision unit**, not real FSR/DLSS/XeSS/Reflex/DirectStorage integration.
 
 - Uses caller-verified flags representing app renderer/API/provider integration. A library export's existence NEVER automatically marks an app SDK as working.
 - Windows defaults to a verified D3D12 renderer; native Linux requires a verified Vulkan renderer; optional native Windows Vulkan is allowed.
@@ -71,3 +71,7 @@ The source-built src/native_pc_host_inventory.cpp inventories only the presence 
 6. **Title integration only later:** with complete lawfully available matching Xbox title files, first ensure correct ABI/memory/shader/commands and saves; only then optimize gameplay, story systems, co-op, settings, and cross-platform support.
 
 No actual commercial game performance figures, native Linux title port or feature compatibility claims are made at this stage.
+
+## Verified independent baseline, not performance claims
+
+[PR #28](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/28) passed Linux and Windows CI and introduced the original native feature selection and library-presence inventory. [PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29) passed Linux and Windows CI, building actual native threaded file reads (synthetic 2 MiB input and 64 deterministic asynchronous chunks). These are testable infrastructure layers, not integrated GPU effects or a retail game. See [native asset streaming](NATIVE_ASSET_STREAMING.md).

@@ -59,4 +59,6 @@ Actual independent native PE32+ execution through the pinned upstream (three ori
 Native-loaded desktop D3D12 smoke: [PR #27](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/27) and [CI result](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44958262954), validating WARP device, queue and fence from the original PE's mapped entrypoint; **no Xbox D3D12.X rendering yet**.
 
 
-Future native Windows + Linux graphics/IO/audio/latency work, optional FSR/DLSS/XeSS, Reflex/Anti-Lag2/XeLL, DLSS 5 neural research, DirectStorage and native io_uring: [technology architecture](docs/NATIVE_PC_TECH_STACK.md). This branch adds a source-built fail-closed cross-platform feature policy and a host library inventory; **no vendor SDK integration is yet claimed**.
+Future native Windows + Linux graphics/IO/audio/latency work, optional FSR/DLSS/XeSS, Reflex/Anti-Lag2/XeLL, DLSS 5 neural research, DirectStorage and native io_uring: [technology architecture](docs/NATIVE_PC_TECH_STACK.md). Main contains a source-built and CI-tested fail-closed cross-platform feature policy and a host library inventory; **no vendor SDK integration is yet claimed**.
+
+Actual portable Windows/Linux asynchronous asset reads (native threads, cancellation, bounded chunks and hash checks) are source-built and CI-tested: [PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29), [technical scope](docs/NATIVE_ASSET_STREAMING.md). This is a portable baseline, not DirectStorage or io_uring yet.

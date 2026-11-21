@@ -20,6 +20,16 @@
 - GPU wave32/64, barriers, descriptors, RDNA2 opcode correctness on synthetic workloads.
 - MSVC/Clang cross-checks and Windows 10/11 compatibility.
 
+## PC technology upgrades — source-built, independent of retail game inputs
+- [x] Windows and Linux source-built fail-closed graphics/storage/latency selection policy + 10 deterministic cases ([PR #28](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/28)).
+- [x] Windows/Linux library export inventory, explicitly not actual SDK availability.
+- [x] Native Windows/Linux threaded asset reads, offsets, cancellation, checksum and shutdown tests ([PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29)).
+- [ ] Actual native window/present: D3D12 Windows, Vulkan Linux and optionally Windows ([#30](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/30)).
+- [ ] FSR/XeSS/DLSS SR with verified SDK and scene temporal inputs; DirectSR where available ([#31](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/31)).
+- [ ] Frame generation, NVIDIA Reflex, Anti-Lag 2, XeLL, permitted DLSS 5 neural, latency and image-quality profiling ([#32](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/32)).
+- [ ] Actual Windows DirectStorage + validated legal codec vectors and native Linux io_uring backends ([#33](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/33)).
+- [ ] Native Linux ELF game/program path and native Windows/Linux audio, input, saves, network, device testing ([#34](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/34)).
+
 ## M2 — game-specific work only with lawful and complete inputs
 - Version-pinned, read-only asset and EXE inventory performed locally (never CI uploads).
 - Record genuine ABI imports and missing services; no DRM bypass.

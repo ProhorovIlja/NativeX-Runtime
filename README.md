@@ -15,6 +15,8 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 - `fixtures/d3d12_warp_smoke.cpp`, `fixtures/d3d12_warp_compute.cpp` — native Windows D3D12 WARP command/fence and synthetic SM5 compute readback.
 - `fixtures/wave_lanes_sm6.hlsl`, `fixtures/d3d12_wave_sm6.cpp` — source-built Shader Model 6 wave intrinsics **actually executed on WARP** and verified against CPU output.
 - `fixtures/win_memory_alias.cpp`, `fixtures/physical_page_cpu_model.cpp` — Win32 memory and independent page-identity/remapping model.
+- `fixtures/msvc_struct_return_abi.cpp` — native Windows x64 synthetic virtual struct-return ABI regression test.
+- The SM6 fixture has distinct `warp` and vendor-checked `hardware` modes; the public runner passed WARP and correctly skipped unavailable AMD/NVIDIA/Intel hardware.
 - `src/pe_intake.cpp` also reports PE32+ named/ordinal exports and forwarded-export metadata with bounded tables, including checks against our own compiled DLL.
 - `docs/UPSTREAM_REVIEW_2026-11-22.md` — dated comparison of changes in seven upstream projects, with links and explicit proof gaps.
 - `docs/ARCHITECTURE.md`, `docs/SOURCES.md` and `docs/ROADMAP.md` — engineering baselines and evidence discipline.

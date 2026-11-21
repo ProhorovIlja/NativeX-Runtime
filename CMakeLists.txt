@@ -215,7 +215,7 @@ add_test(NAME native_pc_input_event_state_machine COMMAND native_input_core_test
 # Win32 foreground Raw Input + native operating-system XInput 1.4, not a virtual pad.
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_executable(native_win_input_probe fixtures/native_win_input_probe.cpp)
-  target_link_libraries(native_win_input_probe PRIVATE native_input_core user32 xinput1_4)
+  target_link_libraries(native_win_input_probe PRIVATE native_input_core user32 xinput)
   target_compile_features(native_win_input_probe PRIVATE cxx_std_17)
   if(MSVC)
     target_compile_options(native_win_input_probe PRIVATE /W4 /WX /permissive-)

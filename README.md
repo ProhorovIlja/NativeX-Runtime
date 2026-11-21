@@ -12,7 +12,10 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 - `tools/discover.py` — search for relevant new public projects/forks; candidates remain unreviewed.
 - `tools/commit_watch.py` — bounded metadata-only scan of recent commit subjects, never proof of a fixed bug.
 - `fixtures/wave64_cpu_oracle.cpp` — source-built logical wave64 vs 2×wave32 CPU differential tests.
-- `fixtures/d3d12_warp_smoke.cpp`, `fixtures/d3d12_warp_compute.cpp` — native Windows D3D12 WARP command/fence and real synthetic compute dispatch/readback tests.
+- `fixtures/d3d12_warp_smoke.cpp`, `fixtures/d3d12_warp_compute.cpp` — native Windows D3D12 WARP command/fence and synthetic SM5 compute readback.
+- `fixtures/wave_lanes_sm6.hlsl`, `fixtures/d3d12_wave_sm6.cpp` — source-built Shader Model 6 wave intrinsics **actually executed on WARP** and verified against CPU output.
+- `fixtures/win_memory_alias.cpp`, `fixtures/physical_page_cpu_model.cpp` — Win32 memory and independent page-identity/remapping model.
+- `src/pe_intake.cpp` also reports PE32+ named/ordinal exports and forwarded-export metadata with bounded tables, including checks against our own compiled DLL.
 - `docs/UPSTREAM_REVIEW_2026-11-22.md` — dated comparison of changes in seven upstream projects, with links and explicit proof gaps.
 - `docs/ARCHITECTURE.md`, `docs/SOURCES.md` and `docs/ROADMAP.md` — engineering baselines and evidence discipline.
 - `.github/workflows/ci.yml` — synthetic Linux/Windows tests on standard **public-repository** runners.
@@ -38,4 +41,4 @@ On Windows x64, `win_native_probe.exe` prints **host capabilities**, not Xbox co
 
 All project's original source files are published under MIT (see LICENSE). Upstream projects have **different** licenses (including GPL and LGPL) and are **references**, not embedded dependencies. No third-party source code is copied without an explicit license, attribution and compatibility review.
 
-See [project limitations](docs/STATE.md), [safe research rules](SECURITY.md) and [contribution guidelines](CONTRIBUTING.md).
+See [the native Windows end-state definition](docs/NATIVE_TARGET.md), [project limitations](docs/STATE.md), [safe research rules](SECURITY.md) and [contribution guidelines](CONTRIBUTING.md).

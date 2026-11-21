@@ -1,5 +1,7 @@
 # Native-first architecture research
 
+The [final native Windows target](NATIVE_TARGET.md) is a normal Windows-targeted x64 executable with PC graphics/audio/filesystem/settings; merely running a console PE under compatibility DLLs is an intermediate research mode, not the final deliverable.
+
 Xbox Series x86-64 guest code potentially executes without CPU emulation on a matching Windows x64 host. This does **not** imply an unmodified console EXE boots on desktop Windows: the host still needs correct ABI/GDK, memory allocator, executable import/TLS, filesystem, task scheduling, graphics command stream, RDNA2 GPU shader translation, audio and input.
 
 | Layer | Proposed validation | Must not imply |

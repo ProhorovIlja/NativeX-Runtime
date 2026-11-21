@@ -1,6 +1,6 @@
 # Upstream technical audit — 2026-11-22
 
-Baseline: `sources/upstreams.json` (pinned 2026-11-21). Seven of the 14 public branch heads changed when last queried. The entries below are **observed upstream commits and author claims**, not independently reproduced gameplay.
+Baseline: `sources/upstreams.json` (pinned 2026-11-21). Eight of the 14 public branch heads changed when last queried. The entries below are **observed upstream commits and author claims**, not independently reproduced gameplay.
 
 | Upstream | Observed head | Material finding | Verification gap |
 |---|---|---|---|
@@ -28,3 +28,12 @@ Baseline: `sources/upstreams.json` (pinned 2026-11-21). Seven of the 14 public b
 5. Different upstream source licenses remain separate; do not merge GPL, LGPL, MIT and Apache files mechanically.
 
 Review date: 2026-11-22. This is a point-in-time review; upstream branch states may change.
+
+## Additional observed source changes (same review window)
+
+- [Xbox2Windows head b53bfb0b](https://github.com/R0Y00/Xbox2Windows/commit/b53bfb0b6489398aba7a81f3761e2d56aaa00ccf): further upstream merges relating to shader cube sampling, CRT/DLL lifecycle, GPU aliases and texture page padding. The commit titles are not independent runtime compatibility proof.
+- [AnyXboxX head fac3673d](https://github.com/LooperSalty/AnyXboxX/commit/fac3673dcfbc8a53160db52fbe5d1109738c894a): merged RDNA2 SMEM operand research and project CI. Its [README](https://github.com/LooperSalty/AnyXboxX/blob/fac3673dcfbc8a53160db52fbe5d1109738c894a/README.md) also claims **native Windows** mode of source-built SimpleTriangle and SDL3 testgdk alongside separate Unicorn isolation. Independent clean-build/reproduction is still needed ([tracking #14](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/issues/14)). Simple GDK sample execution does not establish retail Xbox title compatibility.
+- [TuxBox head d5abfc01](https://github.com/brcly/TuxBox/commit/d5abfc01dd551aae4841be7de5038ba78185d2b4): title-specific shader linkage work, not independently reproduced here.
+- [Microsoft GDK public README](https://github.com/microsoft/GDK/blob/Main/README.MD) documents the **October 2026 GDK directory migration** and distinguishes public Windows GDK from confidential Xbox Extensions/GDKX. Public documentation alone is not a licensed console SDK.
+
+Our independent evidence advanced beyond commit inspection: [native Windows WARP SM6 WaveOps CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44953548531) genuinely executed original desktop HLSL and passed readback checks. This is **not** reproduction of any upstream RDNA2 shader translation claim.

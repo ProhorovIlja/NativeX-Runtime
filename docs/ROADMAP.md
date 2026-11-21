@@ -9,7 +9,9 @@
 - Record upstream issues and reproducibility blockers with direct links.
 
 ## M1 — generic Windows compatibility experiments
-- Synthetic PE32+ loader tests: TLS, imports, delay-load, relocations, unwinding.
+- PE32+ source-built metadata inventory: ordinary/delayed imports, TLS presence, relocs, exports, ordinals and forwarders (**passing**); **actual TLS callback/unwind loader behavior is still pending**.
+- Win32 virtual memory and logical 64 KiB page remapping/dirty staging model (**passing**); true Xbox physical remapping and GPU coherency pending.
+- Source-built HLSL Shader Model 6 wave ops executed on D3D12 WARP with CPU readback (**passing**); AMD/NVIDIA/Intel hardware, native RDNA2 ISA and Shader Model 6.6 compatibility pending.
 - D3D12.X-to-D3D12 interface mapping with source-built stand-ins.
 - GPU wave32/64, barriers, descriptors, RDNA2 opcode correctness on synthetic workloads.
 - MSVC/Clang cross-checks and Windows 10/11 compatibility.

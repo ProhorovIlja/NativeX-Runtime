@@ -62,3 +62,8 @@ Native-loaded desktop D3D12 smoke: [PR #27](https://github.com/ProhorovIlja/Scar
 Future native Windows + Linux graphics/IO/audio/latency work, optional FSR/DLSS/XeSS, Reflex/Anti-Lag2/XeLL, DLSS 5 neural research, DirectStorage and native io_uring: [technology architecture](docs/NATIVE_PC_TECH_STACK.md). Main contains a source-built and CI-tested fail-closed cross-platform feature policy and a host library inventory; **no vendor SDK integration is yet claimed**.
 
 Actual portable Windows/Linux asynchronous asset reads (native threads, cancellation, bounded chunks and hash checks) are source-built and CI-tested: [PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29), [technical scope](docs/NATIVE_ASSET_STREAMING.md). This is a portable baseline, not DirectStorage or io_uring yet.
+
+Recent verified source-built PC work:
+- [Portable native Windows/Linux asset streaming](docs/NATIVE_ASSET_STREAMING.md) ([PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29)); not DirectStorage or io_uring.
+- [Renderer-specific modern SDK feature guards](docs/GPU_API_INTEGRATION_GATES_2026-11-22.md) ([PR #35](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/35)); 14 policy scenarios, no vendor effects claimed.
+- [Native desktop D3D12 WARP triangle raster + verified pixel readback](docs/D3D12_RASTER_READBACK_2026-11-22.md) ([PR #36](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/36)); 18/18 Windows tests pass, but no Xbox D3D12.X or GTA VI game frame.

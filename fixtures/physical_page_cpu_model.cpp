@@ -140,10 +140,10 @@ int main(){
 
         std::cout<<"{\"kind\":\"physical-page-cpu-reference\","
                  <<"\"page_size\":65536,"
-                 <<"page_count\":3,\"virtual_slots\":8,"
-                 <<"move_unmap_remap\":true,"
-                 <<"stale_staging_invalidation\":true,"
-                 <<"xbox_xmem_tested\":false,\"gpu_execution\":false}\n";
+                 <<"\"page_count\":3,\"virtual_slots\":8,"
+                 <<"\"move_unmap_remap\":true,"
+                 <<"\"stale_staging_invalidation\":true,"
+                 <<"\"xbox_xmem_tested\":false,\"gpu_execution\":false}\n";
     } catch(const std::exception& e) {
         std::cerr<<"physical-page CPU model FAILED: "<<e.what()<<'\n';
         return 1;

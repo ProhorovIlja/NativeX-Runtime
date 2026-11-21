@@ -1,0 +1,30 @@
+{
+  "repositories": {
+    "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK": {
+      "tag_name": "v2.4.0",
+      "published_at": "2026-10-28T13:18:15Z",
+      "html_url": "https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/releases/tag/v2.4.0"
+    },
+    "intel/xess": {
+      "tag_name": "v3.0.2",
+      "published_at": "2026-07-24T18:24:17Z",
+      "html_url": "https://github.com/intel/xess/releases/tag/v3.0.2"
+    },
+    "NVIDIA-RTX/Streamline": {
+      "tag_name": "v2.14.16",
+      "published_at": "2026-10-16T16:01:47Z",
+      "html_url": "https://github.com/NVIDIA-RTX/Streamline/releases/tag/v2.14.16"
+    },
+    "HansKristian-Work/vkd3d-proton": {
+      "tag_name": "v3.1",
+      "published_at": "2026-10-28T10:19:54Z",
+      "html_url": "https://github.com/HansKristian-Work/vkd3d-proton/releases/tag/v3.1"
+    },
+    "microsoft/DirectStorage": null,
+    "ValveSoftware/Proton": {
+      "tag_name": "proton-11.0-2",
+      "published_at": "2026-08-21T20:31:08Z",
+      "html_url": "https://github.com/ValveSoftware/Proton/releases/tag/proton-11.0-2"
+    }
+  }
+}

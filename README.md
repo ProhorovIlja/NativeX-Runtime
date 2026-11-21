@@ -45,3 +45,5 @@ All project's original source files are published under MIT (see LICENSE). Upstr
 
 See [the native Windows end-state definition](docs/NATIVE_TARGET.md), [project limitations](docs/STATE.md), [safe research rules](SECURITY.md) and [contribution guidelines](CONTRIBUTING.md).
 Research updates: [2026-11-22 upstream ABI/shader delta](docs/UPSTREAM_DELTA_2026-11-22.md). Exact upstream author claims and independently executed tests are recorded separately.
+
+Current watched branch-tip snapshot: [2026-11-22 upstream checkpoint](docs/UPSTREAM_CHECKPOINT_2026-11-22.md). Original SHA baselines retained separately; commit movement is not proof of game compatibility.

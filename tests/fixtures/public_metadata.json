@@ -1,11 +1,11 @@
 {
   "repositories": {
     "omonkeyz/xbox-emulator": {
-      "head_sha": "6590adbe2135a5a979fd857d9c84fe0414b966b5",
+      "head_sha": "0fc72956f9ff742a275534c27d9e5a7a9886a0c3",
       "license_metadata": "Apache-2.0"
     },
     "ivall/xcl": {
-      "head_sha": "3c546ef78e6be51190843c1b24569b6b0cdcfec0",
+      "head_sha": "f12d724dd94b6ab99acef04866e3e2f8da7b9e",
       "license_metadata": "GPL-2.0"
     }
   }

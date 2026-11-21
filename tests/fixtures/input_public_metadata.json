@@ -1,0 +1,20 @@
+{
+  "repositories": {
+    "microsoftconnect/GameInput": {
+      "head_sha": "4a3150cbe27d5fa7bad98dbacd79a40152e4b05e",
+      "license_metadata": "NOASSERTION"
+    },
+    "libsdl-org/SDL": {
+      "head_sha": "c8da179691f909734cd1b124c930e49311428996",
+      "license_metadata": "Zlib"
+    },
+    "libusb/hidapi": {
+      "head_sha": "378a53a8b6c098a32bea5dd659d647898030ccb0",
+      "license_metadata": "NOASSERTION"
+    },
+    "nondebug/dualsense": {
+      "head_sha": "02338358b6b4be2d64dbf661ae2a47842156cfcf",
+      "license_metadata": "UNVERIFIED"
+    }
+  }
+}

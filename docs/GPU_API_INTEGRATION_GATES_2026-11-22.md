@@ -36,3 +36,10 @@ These are **synthetic selection-policy tests** only. No vendor SDK function is l
 - Existing native Windows PE32+ loader and WARP checks remain useful but neither exercises Xbox D3D12.X or GTA VI.
 
 Next technical gate: execute an original D3D12 frame-present/render+readback fixture through the native loaded PE, then validate API-specific FSR/XeSS/DLSS adapters against real hardware and lawful SDK access; develop Linux Vulkan independently. Keep render-FPS distinct from interpolated-frame presentation rate.
+
+
+### NVIDIA Streamline: public integration layer versus authorized DLSS 5 runtime
+
+The public [Streamline v2.14.16 release](https://github.com/NVIDIA-RTX/Streamline/releases/tag/v2.14.16), dated 2026-10-16, includes a changelog entry introducing the `sl.dlss_nr` plugin for 3D-Guided Neural Rendering (see [changelog](https://github.com/NVIDIA-RTX/Streamline/blob/main/changelog.txt)). That is **public evidence of an API/plugin interface**, not proof that every developer may download, redistribute or successfully execute the complete DLSS 5 neural runtime/models on their own scene. NVIDIA's [2026-11-09 response](https://forums.developer.nvidia.com/t/official-dlss-5-neural-rendering-plugin-access-for-unreal-engine-5-8-2/382731) still said the full SDK was not generally publicly accessible. Continue to require authorization, verified runtime, GPU/driver and scene inputs before this separate effect can activate.
+
+The same Streamline 2.14 changelog documents a Vulkan Reflex path through `VK_NV_low_latency2`. The new `ApiIntegration.vulkan.reflex` bit intentionally permits that path *when independently verified*; a D3D12-only Reflex implementation must not spill into Vulkan.

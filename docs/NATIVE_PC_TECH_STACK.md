@@ -75,3 +75,12 @@ No actual commercial game performance figures, native Linux title port or featur
 ## Verified independent baseline, not performance claims
 
 [PR #28](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/28) passed Linux and Windows CI and introduced the original native feature selection and library-presence inventory. [PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29) passed Linux and Windows CI, building actual native threaded file reads (synthetic 2 MiB input and 64 deterministic asynchronous chunks). These are testable infrastructure layers, not integrated GPU effects or a retail game. See [native asset streaming](NATIVE_ASSET_STREAMING.md).
+
+
+### Native PC input gate (source-tested)
+
+The first cross-platform C++17 input event-state core, Windows Raw Input foreground diagnostic and XInput 1.4 OS calls have passed independently on free CI ([PR #40](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/40), [run 44961947959](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44961947959)). Unlike a gamepad remapper, this consumes native keyboard hardware make codes and relative mouse deltas without synthesizing Xbox-pad input. Native text input/IME, hotplug, per-device ownership and physical latency are still open.
+
+An original MSVC probe now also compiles against pinned upstream official MIT Microsoft GameInput API 4 and DualSense helper headers ([PR #41](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/41), [run 44962173292](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44962173292)). The helper only constructs USB-format adaptive-trigger reports; it does not supply Bluetooth framing, Sony certification, gameplay integration or hardware proof. Keep haptic output disabled until specific device/transport capability and user-approved physical testing. See [native input architecture](NATIVE_PC_INPUT_2026-11-22.md) and [input upstream surveillance](INPUT_UPSTREAM_REVIEW_2026-11-22.md).
+
+**Provider policy:** Windows GameInput is a primary candidate; Raw Input for direct mouse/keyboard and XInput 1.4 fallback are confirmed basic paths. SDL3/HIDAPI are candidates for generic devices and native Linux. One device must be owned by one logical provider at a time to avoid double actions. No virtual pad driver, input hook or blanket language rewrite is justified by these tests. The engine-facing API and mappings remain deferred until an actual game build and lawful interface audit.

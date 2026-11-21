@@ -64,11 +64,11 @@ class Writer{
 public:
     Writer(Queue q,std::size_t size):queue_(q),size_(size){
         if(size==0||size>Capacity)throw std::invalid_argument("capacity");
-        store_.fill(0xa5);
+        store_.fill(std::uint8_t{0xa5});
         reset();
     }
     void reset(){
-        std::fill(store_.begin()+Guard,store_.begin()+Guard+Capacity,0);
+        std::fill(store_.begin()+Guard,store_.begin()+Guard+Capacity,std::uint8_t{0});
         used_=0;seq_=1;
     }
     bool guards()const{

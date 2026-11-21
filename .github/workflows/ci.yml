@@ -48,6 +48,19 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
+      - name: Discover installed Windows SDK DXC (optional SM6 test)
+        shell: pwsh
+        run: |
+          $root = 'C:\Program Files (x86)\Windows Kits\10\bin'
+          $items = @(Get-ChildItem -LiteralPath $root -Filter dxc.exe -File -Recurse -ErrorAction SilentlyContinue |
+            Where-Object { $_.Directory.Name -eq 'x64' } | Sort-Object FullName -Descending)
+          if ($items.Count -gt 0) {
+            $path = $items[0].FullName
+            Add-Content -Path $env:GITHUB_ENV -Value "SCARLETT_DXC_PATH=$path"
+            Write-Host 'Installed Windows SDK DXC found'
+          } else {
+            Write-Host 'No SDK DXC: optional SM6 test will not be registered'
+          }
       - name: Configure MSVC x64
         run: cmake -S . -B build -A x64
       - name: Compile C++17 native programs

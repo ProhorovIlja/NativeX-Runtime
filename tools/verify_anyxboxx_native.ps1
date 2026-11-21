@@ -3,7 +3,7 @@
 param([string]$WorkRoot = "", [switch]$RunSynthetic)
 $ErrorActionPreference = "Stop"
 if ($env:OS -ne "Windows_NT") { throw "Requires Windows x64" }
-$sha = "c9a243270ceb309c15fe82b0b6b763ff29061d9e"
+$sha = "1a2e2e677c18e6ae4053eb84d4ff2395c538c108"
 $origin = "https://github.com/LooperSalty/AnyXboxX.git"
 if (-not $WorkRoot) {
     $root = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } else { [IO.Path]::GetTempPath() }

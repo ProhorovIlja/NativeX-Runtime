@@ -23,6 +23,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python tools/radar.py --report artifacts/revisions.md --snapshot artifacts/revisions.json
+      - name: Watch native PC input repos and pinned source revisions
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/radar.py --registry sources/input_upstreams.json --report artifacts/input-upstream-revisions.md --snapshot artifacts/input-upstream-revisions.json
       - name: Discover new repositories and forks
         env:
           GITHUB_TOKEN: ${{ github.token }}

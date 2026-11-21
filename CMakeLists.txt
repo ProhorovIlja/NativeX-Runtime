@@ -38,3 +38,12 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_test(NAME native_loader_named_ordinal_exports
     COMMAND scarlett_abi_host_test "$<TARGET_FILE:scarlett_abi_fixture>")
 endif()
+
+add_executable(wave64_cpu_oracle fixtures/wave64_cpu_oracle.cpp)
+target_compile_features(wave64_cpu_oracle PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(wave64_cpu_oracle PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(wave64_cpu_oracle PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME wave64_cpu_oracle COMMAND wave64_cpu_oracle)

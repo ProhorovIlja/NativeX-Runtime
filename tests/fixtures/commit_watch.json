@@ -1,0 +1,32 @@
+{
+  "repositories": {
+    "omonkeyz/xbox-emulator": [
+      {
+        "sha": "0fc72956f9ff742a275534c27d9e5a7a9886a0c3",
+        "commit": {
+          "message": "ISA sweep executable tests",
+          "committer": {
+            "date": "2026-11-21T21:21:33Z"
+          }
+        }
+      },
+      {
+        "sha": "6590adbe2135a5a979fd857d9c84fe0414b966b5",
+        "commit": {
+          "message": "Previous baseline"
+        }
+      }
+    ],
+    "ivall/xcl": [
+      {
+        "sha": "18cb4004008fbf34e43926e94f0e955faed5b010",
+        "commit": {
+          "message": "User data register placement",
+          "committer": {
+            "date": "2026-11-21T21:20:01Z"
+          }
+        }
+      }
+    ]
+  }
+}

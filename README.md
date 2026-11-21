@@ -42,3 +42,4 @@ On Windows x64, `win_native_probe.exe` prints **host capabilities**, not Xbox co
 All project's original source files are published under MIT (see LICENSE). Upstream projects have **different** licenses (including GPL and LGPL) and are **references**, not embedded dependencies. No third-party source code is copied without an explicit license, attribution and compatibility review.
 
 See [the native Windows end-state definition](docs/NATIVE_TARGET.md), [project limitations](docs/STATE.md), [safe research rules](SECURITY.md) and [contribution guidelines](CONTRIBUTING.md).
+Research updates: [2026-11-22 upstream ABI/shader delta](docs/UPSTREAM_DELTA_2026-11-22.md). Exact upstream author claims and independently executed tests are recorded separately.

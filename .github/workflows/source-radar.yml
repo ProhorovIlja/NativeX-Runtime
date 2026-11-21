@@ -27,6 +27,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python tools/discover.py --report artifacts/candidates.md --snapshot artifacts/candidates.json
+      - name: Collect bounded public commit subjects (no source blobs)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python tools/commit_watch.py --report artifacts/commit-leads.md --snapshot artifacts/commit-leads.json
       - name: Retain small metadata reports (no game files)
         if: always()
         uses: actions/upload-artifact@v4

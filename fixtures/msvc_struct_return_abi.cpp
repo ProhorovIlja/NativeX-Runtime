@@ -90,20 +90,24 @@ int main() {
 
 #ifdef _MSC_VER
     // In the Microsoft x64 C++ ABI a 16-byte return is written via a hidden
-    // caller-provided buffer before the object ("this") argument.
+    // caller-provided buffer after the object ("this") argument, for this MSVC member function.
     // This explicitly tests the raw ABI by invoking a compiler-generated
     // *synthetic* method through its vtable. No Xbox executable is loaded.
-    using StructReturnAbi = void (*)(AllocationInfo*,DeviceInterface*,
+    using StructReturnAbi = void (*)(DeviceInterface*,AllocationInfo*,
                                      std::uint32_t,std::uint32_t,
                                      const ResourceDescription*) noexcept;
     void** slots=*reinterpret_cast<void***>(iface);
     if(!slots || !slots[25])return fail("missing synthetic vtable slot 25");
     const auto call=reinterpret_cast<StructReturnAbi>(slots[25]);
     AllocationInfo raw{0,0};
-    call(&raw,iface,7,1,&desc);
+    call(iface,&raw,7,1,&desc);
     if(raw.size!=high_level.size || raw.alignment!=high_level.alignment ||
-       device.calls!=2 || !guards_ok(device))
+       device.calls!=2 || !guards_ok(device)){
+        std::cerr<<"raw="<<raw.size<<","<<raw.alignment
+                 <<" high="<<high_level.size<<","<<high_level.alignment
+                 <<" calls="<<device.calls<<" guards="<<guards_ok(device)<<'\n';
         return fail("hidden struct-return parameter or object pointer ABI mismatch");
+    }
     std::cout<<"{\"kind\":\"msvc-x64-struct-return-abi\","
                "\"synthetic_slot\":25,\"hidden_result_parameter_verified\":true,"
                "\"vtable_canaries_intact\":true,"

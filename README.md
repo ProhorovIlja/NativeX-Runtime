@@ -51,3 +51,5 @@ Research updates: [2026-11-22 upstream ABI/shader delta](docs/UPSTREAM_DELTA_202
 Current watched branch-tip snapshot: [2026-11-22 upstream checkpoint](docs/UPSTREAM_CHECKPOINT_2026-11-22.md). Original SHA baselines retained separately; commit movement is not proof of game compatibility.
 
 Native upstream-source reproduction: [AnyXboxX clean-build gate](docs/ANYXBOXX_NATIVE_BUILD_GATE.md) and [independent Windows run](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44956507116). This confirms a public-source build only, not gameplay.
+
+Public research inventory now tracks 19 source repositories, including Microsoft PC GDK samples, DXC, LLVM, DirectX Graphics Samples and shadPS4 as a distinct architecture-only reference: [additional primary references](docs/PRIMARY_PUBLIC_REFERENCES_2026-11-22.md).

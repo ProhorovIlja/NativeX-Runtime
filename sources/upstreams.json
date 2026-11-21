@@ -142,9 +142,59 @@
       "summary": "Independent LLVM decoder comparison, synthetic examples and isolated emulation",
       "evidence": "GitHub metadata and upstream author statements; independent tests pending",
       "initial_baseline_sha": "1aad95584d8be3c0778d887986b3f33152b41a1d"
+    },
+    {
+      "repository": "microsoft/Xbox-GDK-Samples",
+      "ref": "main",
+      "baseline_sha": "b1e77b6ac10f95b07296025fda171ca2ddc42dbe",
+      "initial_baseline_sha": "b1e77b6ac10f95b07296025fda171ca2ddc42dbe",
+      "category": "official-sample",
+      "license_metadata": "MIT",
+      "summary": "Published PC GDK samples including SimpleTriangleDesktop, usable as lawful baseline for native loader/graphics validation",
+      "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
+    },
+    {
+      "repository": "microsoft/DirectXShaderCompiler",
+      "ref": "main",
+      "baseline_sha": "915bf4f93a254d920b4bcab75b6b1c622eacd816",
+      "initial_baseline_sha": "915bf4f93a254d920b4bcab75b6b1c622eacd816",
+      "category": "compiler",
+      "license_metadata": "UNVERIFIED",
+      "summary": "DXC HLSL to DXIL compiler implementation, tests and shader model semantics; read per-file license",
+      "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
+    },
+    {
+      "repository": "llvm/llvm-project",
+      "ref": "main",
+      "baseline_sha": "918df2fb335ac75e9b8995dcec64c6b187fbe44e",
+      "initial_baseline_sha": "918df2fb335ac75e9b8995dcec64c6b187fbe44e",
+      "category": "compiler-isa",
+      "license_metadata": "UNVERIFIED",
+      "summary": "LLVM/Clang AMDGPU instruction encodings and compiler architecture; not a ready RDNA2 Xbox runtime",
+      "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
+    },
+    {
+      "repository": "microsoft/DirectX-Graphics-Samples",
+      "ref": "master",
+      "baseline_sha": "68a2b1e97f71642924e74c7757ca21756ad221b5",
+      "initial_baseline_sha": "68a2b1e97f71642924e74c7757ca21756ad221b5",
+      "category": "graphics-reference",
+      "license_metadata": "MIT",
+      "summary": "Native Windows D3D12 samples for graphics pipeline, debugging, command lists, resource barriers and validation",
+      "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
+    },
+    {
+      "repository": "shadps4-emu/shadPS4",
+      "ref": "main",
+      "baseline_sha": "264d6b71d8671a429ad2c9d1a281e18558fb9693",
+      "initial_baseline_sha": "264d6b71d8671a429ad2c9d1a281e18558fb9693",
+      "category": "architecture-reference",
+      "license_metadata": "GPL-2.0",
+      "summary": "PS4 GPU/memory/shader-translation architecture only; GCN PS4 is not Xbox Series RDNA2, no GPL code imported",
+      "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
     }
   ],
   "first_baseline_date": "2026-11-21",
   "baseline_kind": "observed-public-GitHub-ref-snapshot-not-technical-verification",
-  "checkpoint_note": "SHAs copied from public GitHub git/ref/heads on 2026-11-21 UTC / November 22 project checkpoint; technical claims not independently executed"
+  "checkpoint_note": "2026-11-22: original 14 retained, added five public official/compiler/architecture references at observed GitHub HEAD. Snapshot values are not correctness claims."
 }

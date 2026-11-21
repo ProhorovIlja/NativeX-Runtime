@@ -90,11 +90,11 @@ int run() {
              "\"dualsense_id_checks\":true,"
              "\"invalid_trigger_bounds_rejected\":true,"
              "\"runtime_dll_system32_present\":"<<(runtime_loaded?"true":"false")<<','
-             "\"runtime_initialized\":"<<(runtime_initialized?"true":"false")<<','
-             "\"physical_gamepad_reading\":"<<(has_gamepad_reading?"true":"false")<<','
-             "\"gamepad_state_read\":"<<(reading_decoded?"true":"false")<<','
-             "\"physical_dualsense_seen\":"<<(known_dualsense_reading?"true":"false")<<','
-             "\"raw_trigger_output_sent\":false,"
+             <<"\"runtime_initialized\":"<<(runtime_initialized?"true":"false")<<','
+             <<"\"physical_gamepad_reading\":"<<(has_gamepad_reading?"true":"false")<<','
+             <<"\"gamepad_state_read\":"<<(reading_decoded?"true":"false")<<','
+             <<"\"physical_dualsense_seen\":"<<(known_dualsense_reading?"true":"false")<<','
+             <<"\"raw_trigger_output_sent\":false,"
              "\"bluetooth_haptics_supported_or_tested\":false,"
              "\"game_integration_tested\":false}\n";
     return 0;

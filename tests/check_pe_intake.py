@@ -20,11 +20,19 @@ def fixture(path):
     struct.pack_into('<I',data,opt+60,0x200)
     struct.pack_into('<I',data,opt+108,16)
     struct.pack_into('<II',data,opt+120,0x1000,40)
+    # Relocations, TLS and delay imports are all synthesized, never copied.
+    struct.pack_into('<II',data,opt+112+5*8,0x1080,8)
+    struct.pack_into('<II',data,opt+112+9*8,0x1090,40)
+    struct.pack_into('<II',data,opt+112+13*8,0x10C0,64)
     sh=opt+0xF0
     data[sh:sh+8]=b'.rdata\x00\x00'
     struct.pack_into('<IIII',data,sh+8,0x100,0x1000,0x200,0x200)
     struct.pack_into('<IIIII',data,0x200,0x1050,0,0,0x1040,0x1050)
     data[0x240:0x240+13]=b'KERNEL32.dll\x00'
+    struct.pack_into('<II',data,0x280,0x1000,8)
+    # Zero-initialized synthetic PE32+ TLS directory at raw offset 0x290.
+    struct.pack_into('<II',data,0x2c0,1,0x1100)
+    data[0x300:0x300+11]=b'USER32.dll\x00'
     path.write_bytes(data)
 
 def main(exe):
@@ -35,6 +43,9 @@ def main(exe):
         assert info['machine']=='AMD64' and info['image_base']==0x140000000,info
         assert info['section_names']==['.rdata'] and info['entry_rva']==0x1000,info
         assert info['import_modules']==['KERNEL32.dll'],info
+    assert info['delay_import_modules']==['USER32.dll'],info
+    assert info['relocation_blocks']==1,info
+    assert info['has_tls_directory'] is True,info
         assert info['executable_tested'] is False,info
         for data in (p.read_bytes()[:160],b'not a PE file'):
             bad=d/'bad.exe';bad.write_bytes(data)

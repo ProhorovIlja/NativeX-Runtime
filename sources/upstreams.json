@@ -26,7 +26,7 @@
     {
       "repository": "ivall/xcl",
       "ref": "main",
-      "baseline_sha": "f12d724dd94b6ab99acef04866e3e2f8da7b9e",
+      "baseline_sha": "f12d724dd94b6ab99acef04866e3e3e2f8da7b9e",
       "category": "runtime",
       "license_metadata": "GPL-2.0",
       "summary": "RDNA2 shader translation to HLSL/DXIL; game graphics submission incomplete in README",

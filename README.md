@@ -69,3 +69,9 @@ Recent verified source-built PC work:
 - [Portable native Windows/Linux asset streaming](docs/NATIVE_ASSET_STREAMING.md) ([PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29)); not DirectStorage or io_uring.
 - [Renderer-specific modern SDK feature guards](docs/GPU_API_INTEGRATION_GATES_2026-11-22.md) ([PR #35](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/35)); 14 policy scenarios, no vendor effects claimed.
 - [Native desktop D3D12 WARP triangle raster + verified pixel readback](docs/D3D12_RASTER_READBACK_2026-11-22.md) ([PR #36](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/36)); 18/18 Windows tests pass, but no Xbox D3D12.X or GTA VI game frame.
+
+
+Native PC controller and input milestones:
+- [Native Win32 Raw Input + XInput and C++17 event-state tests](docs/NATIVE_PC_INPUT_2026-11-22.md), [PR #40](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/40): Windows and Linux tests passed; Windows Raw Input registration and system XInput API were executed without virtual controller emulation.
+- [Official Microsoft GameInput v4 + DualSense source SDK validation](third_party/microsoft-gameinput/README.md), [PR #41](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/41): original MIT headers and source-compiled validity checks, without sending haptic packets or claiming a physical controller test.
+- [Input-source surveillance](docs/INPUT_UPSTREAM_REVIEW_2026-11-22.md), [PR #42](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/42): per-source pinned HEAD baselines and CI fixtures for GameInput, SDL3, HIDAPI and DualSense protocol research.

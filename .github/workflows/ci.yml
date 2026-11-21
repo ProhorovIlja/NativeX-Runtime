@@ -32,6 +32,8 @@ jobs:
         run: python tools/discover.py --offline-fixture tests/fixtures/discovery.json --report artifacts/discovery.md --snapshot artifacts/discovery.json
       - name: Offline upstream commit subject fixture
         run: python tools/commit_watch.py --offline-fixture tests/fixtures/commit_watch.json --report artifacts/commit-leads.md
+      - name: Offline PC SDK release radar fixture
+        run: python tools/sdk_radar.py --offline-fixture tests/fixtures/sdk_release_metadata.json --report artifacts/sdk-releases.md --snapshot artifacts/sdk-releases.json
       - name: Compile original read-only PE parser
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release

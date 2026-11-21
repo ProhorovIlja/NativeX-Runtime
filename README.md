@@ -11,6 +11,7 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 - `tools/radar.py` — read-only GitHub revision scanner against [pinned SHAs](sources/upstreams.json).
 - `tools/discover.py` — search for relevant new public projects/forks; candidates remain unreviewed.
 - `tools/commit_watch.py` — bounded metadata-only scan of recent commit subjects, never proof of a fixed bug.
+- `tools/sdk_radar.py` — official PC graphics, Windows DirectStorage, Proton and vkd3d-proton release metadata; GitHub tags are not runtime capability evidence (see [SDK radar](docs/SDK_RELEASE_RADAR.md)).
 - `fixtures/wave64_cpu_oracle.cpp` — source-built logical wave64 vs 2×wave32 CPU differential tests.
 - `fixtures/d3d12_warp_smoke.cpp`, `fixtures/d3d12_warp_compute.cpp` — native Windows D3D12 WARP command/fence and synthetic SM5 compute readback.
 - `fixtures/wave_lanes_sm6.hlsl`, `fixtures/d3d12_wave_sm6.cpp` — source-built Shader Model 6 wave intrinsics **actually executed on WARP** and verified against CPU output.

@@ -40,7 +40,7 @@ void linux_native() {
     ensure(r.backend==Backend::Vulkan && r.upscaler==Upscaler::Fsr &&
            r.frame_gen==FrameGen::Fsr,"Linux Vulkan+FSR");
     ensure(r.storage==Storage::IoUring,"Linux io_uring");
-    ensure(r.latency==Latency::AntiLag2,"synthetic declared AMD latency plugin");
+    ensure(r.latency==Latency::Engine,"AMD Anti-Lag 2 Windows SDK must not be assumed on Linux");
 }
 void intel_and_fallbacks() {
     Capabilities c;c.os=Os::Windows;c.vendor=Vendor::Intel;c.d3d12_renderer_ready=true;
@@ -53,6 +53,12 @@ void intel_and_fallbacks() {
     const auto no_mv=resolve(Preferences{},c);
     ensure(no_mv.upscaler==Upscaler::Native && no_mv.frame_gen==FrameGen::Off,
            "temporal effects enabled without motion vectors");
+}
+void amd_windows_latency() {
+    Capabilities c;c.os=Os::Windows;c.vendor=Vendor::Amd;
+    c.d3d12_renderer_ready=true;c.anti_lag2_ready=true;
+    const auto r=resolve(Preferences{},c);
+    ensure(r.latency==Latency::AntiLag2,"AMD Windows Anti-Lag 2 not selected");
 }
 void user_requests_fail_closed() {
     Capabilities c;c.os=Os::Windows;c.vendor=Vendor::Amd;c.d3d12_renderer_ready=true;
@@ -103,6 +109,7 @@ int main() {
         nvidia_win();
         linux_native();
         intel_and_fallbacks();
+        amd_windows_latency();
         user_requests_fail_closed();
         no_silent_fg_replacement();
         neural_gate_is_distinct();
@@ -112,7 +119,7 @@ int main() {
         std::cerr<<"native PC feature policy FAILED: "<<e.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"source-built-native-PC-feature-policy\","
-             <<"\"scenarios\":9,\"windows_linux\":true,"
+             <<"\"scenarios\":10,\"windows_linux\":true,"
              <<"\"safe_fallbacks\":true,\"provider_sdk_executed\":false,"
              <<"\"console_game_tested\":false}\n";
     return 0;

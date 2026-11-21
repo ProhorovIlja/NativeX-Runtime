@@ -42,8 +42,9 @@ FrameGen best_fg(const Capabilities& c) {
 bool latency_supported(const Capabilities& c,Latency l) {
     switch(l) {
         case Latency::Reflex: return c.vendor==Vendor::Nvidia && c.reflex_ready;
-        case Latency::AntiLag2: return c.vendor==Vendor::Amd && c.anti_lag2_ready;
-        case Latency::Xell: return c.xell_ready;
+        case Latency::AntiLag2: return c.os==Os::Windows && c.vendor==Vendor::Amd && c.anti_lag2_ready;
+        case Latency::Xell: return c.os==Os::Windows && c.xell_ready &&
+            (c.vendor==Vendor::Intel || (c.xess_fg_ready && c.frame_generation_input_ready));
         case Latency::Engine: return true;
         default: return false;
     }

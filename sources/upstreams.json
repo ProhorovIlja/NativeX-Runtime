@@ -192,9 +192,129 @@
       "license_metadata": "GPL-2.0",
       "summary": "PS4 GPU/memory/shader-translation architecture only; GCN PS4 is not Xbox Series RDNA2, no GPL code imported",
       "evidence": "GitHub public metadata; functionality and downstream portability not independently verified"
+    },
+    {
+      "repository": "NVIDIA-RTX/Streamline",
+      "ref": "main",
+      "baseline_sha": "625db07d4bca5abc67d781c42af7e7fb0761f1b6",
+      "initial_baseline_sha": "625db07d4bca5abc67d781c42af7e7fb0761f1b6",
+      "category": "graphics-integration",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "NVIDIA/DLSS",
+      "ref": "main",
+      "baseline_sha": "9981c6350dc58c0ce21f024fd65e31e851c31689",
+      "initial_baseline_sha": "9981c6350dc58c0ce21f024fd65e31e851c31689",
+      "category": "nvidia-super-resolution",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "GPUOpen-LibrariesAndSDKs/FidelityFX-SDK",
+      "ref": "main",
+      "baseline_sha": "7539ae8b6568ad29ed78a753404351daf3b5cca7",
+      "initial_baseline_sha": "7539ae8b6568ad29ed78a753404351daf3b5cca7",
+      "category": "amd-fsr-sdk",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "GPUOpen-LibrariesAndSDKs/AntiLag2-SDK",
+      "ref": "main",
+      "baseline_sha": "390aa4a8c8655d0ae6e90079db2c85e103a96da3",
+      "initial_baseline_sha": "390aa4a8c8655d0ae6e90079db2c85e103a96da3",
+      "category": "low-latency",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "intel/xess",
+      "ref": "main",
+      "baseline_sha": "de0fb9c1c510661c571164e1418ceca8101dab69",
+      "initial_baseline_sha": "de0fb9c1c510661c571164e1418ceca8101dab69",
+      "category": "intel-upscaling",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "microsoft/DirectStorage",
+      "ref": "main",
+      "baseline_sha": "9352da00f98764ac9f2768e424dacc2cac7cd66d",
+      "initial_baseline_sha": "9352da00f98764ac9f2768e424dacc2cac7cd66d",
+      "category": "windows-storage",
+      "license_metadata": "MIT",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "microsoft/DirectX-Specs",
+      "ref": "master",
+      "baseline_sha": "ba0b51cc75e0d2c45e43fa9f4c56f4f609a9ba28",
+      "initial_baseline_sha": "ba0b51cc75e0d2c45e43fa9f4c56f4f609a9ba28",
+      "category": "directx-spec",
+      "license_metadata": "CC-BY-4.0",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "KhronosGroup/Vulkan-Samples",
+      "ref": "main",
+      "baseline_sha": "0a97dba1e71b8fa191afb012b784ebad477ccf5a",
+      "initial_baseline_sha": "0a97dba1e71b8fa191afb012b784ebad477ccf5a",
+      "category": "native-vulkan",
+      "license_metadata": "Apache-2.0",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "KhronosGroup/Vulkan-Headers",
+      "ref": "main",
+      "baseline_sha": "d277a0a3cda9c682708c93279f0c72cd6b0ae3f3",
+      "initial_baseline_sha": "d277a0a3cda9c682708c93279f0c72cd6b0ae3f3",
+      "category": "vulkan-api",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "libsdl-org/SDL",
+      "ref": "main",
+      "baseline_sha": "c8da179691f909734cd1b124c930e49311428996",
+      "initial_baseline_sha": "c8da179691f909734cd1b124c930e49311428996",
+      "category": "native-input-window-audio",
+      "license_metadata": "Zlib",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "mackron/miniaudio",
+      "ref": "master",
+      "baseline_sha": "877ea4a7c2601c7b0f2a44e83dfac42e6470fea6",
+      "initial_baseline_sha": "877ea4a7c2601c7b0f2a44e83dfac42e6470fea6",
+      "category": "native-audio",
+      "license_metadata": "UNVERIFIED",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
+    },
+    {
+      "repository": "axboe/liburing",
+      "ref": "master",
+      "baseline_sha": "a10946dc51eeababc48ee10baf0d17489f647a80",
+      "initial_baseline_sha": "a10946dc51eeababc48ee10baf0d17489f647a80",
+      "category": "linux-async-io",
+      "license_metadata": "MIT",
+      "summary": "Public GitHub technical reference; version-pinned source only, per-feature SDK/driver and license validation mandatory",
+      "evidence": "GitHub metadata and official vendor documentation; no actual SDK execution or game compatibility verified"
     }
   ],
   "first_baseline_date": "2026-11-21",
   "baseline_kind": "observed-public-GitHub-ref-snapshot-not-technical-verification",
-  "checkpoint_note": "2026-11-22: original 14 retained, added five public official/compiler/architecture references at observed GitHub HEAD. Snapshot values are not correctness claims."
+  "checkpoint_note": "2026-11-22: expanded 19 existing refs by 12 official PC graphics, SDK, Vulkan, latency, audio and storage sources; now 31 total. Observed HEAD is not compatibility validation."
 }

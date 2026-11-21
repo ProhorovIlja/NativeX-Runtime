@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "policy": "Experimental injection project only, isolated research; never vendor, auto-launch, download a nonpublic NVIDIA runtime, inject third-party code or bypass game security/DRM.",
+  "entries": [
+    {
+      "repository": "MotionflowOffical/UniversalDLSS5",
+      "ref": "main",
+      "sha": "369872ffb80a2bd8a4f8e3469f5b40e515fcc0f6",
+      "release": "v0.5.1",
+      "status": "author-reported experimental Windows injector/controller; NOT independently audited or run",
+      "license": "Upstream README claims Apache-2.0; NVIDIA runtime distribution has independent restrictions",
+      "notes": "D3D9/10/11/12, Vulkan and OpenGL claimed; hooks, depth/motion capture and GPU synchronization may impact stability. Study ideas only with original programs; do not ship as runtime dependency."
+    }
+  ]
+}

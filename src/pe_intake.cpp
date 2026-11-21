@@ -111,12 +111,12 @@ public:
         const uint16_t index=u16(ordinal_table+uint64_t(i)*2);
         if(index>=fn_count)throw std::runtime_error("invalid export ordinal index");
         const uint32_t target=u32(functions+uint64_t(index)*4);
-        const uint32_t n=u32(name_table+uint64_t(i)*4);
+        const uint32_t export_name_rva=u32(name_table+uint64_t(i)*4);
         const uint32_t ordinal=uint32_t(uint64_t(base)+index);
         // Forwarded exports point into the export-directory RVA range.
         const bool forwarded=uint64_t(target)>=exp.first &&
             uint64_t(target)<uint64_t(exp.first)+exp.second;
-        exports.push_back({module(n),ordinal,forwarded?module(target):std::string{}});
+        exports.push_back({module(export_name_rva),ordinal,forwarded?module(target):std::string{}});
       }
     }
     if(u32(opt+108)>=2){

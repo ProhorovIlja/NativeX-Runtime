@@ -51,5 +51,15 @@ def main(exe):
             bad=d/'bad.exe';bad.write_bytes(data)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr
-    print("synthetic PE32+ import and corruption test: PASS")
+        # Negative cases: malformed metadata must fail without executing the image.
+        for raw_offset, bad_value in ((0x280+4, 0xffffffff),
+                                      (opt+112+9*8+4, 8),
+                                      (0x2c0, 0)):
+            corrupted=bytearray(p.read_bytes())
+            struct.pack_into('<I',corrupted,raw_offset,bad_value)
+            bad=d/'bad-metadata.exe'
+            bad.write_bytes(corrupted)
+            run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
+            assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
+    print("synthetic PE32+ imports, delay imports, TLS, relocations and corruption: PASS")
 if __name__=='__main__':main(sys.argv[1])

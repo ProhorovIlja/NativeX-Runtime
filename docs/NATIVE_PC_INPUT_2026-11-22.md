@@ -1,0 +1,43 @@
+# Native Windows PC input — keyboard, mouse, gamepads and DualSense research
+
+Updated 2026-11-22. Source basis: `Порт GTA 6.md` priorities, Windows first and Linux native second; game-specific mapping, co-op and action wheels remain deferred until lawful game material is available.
+
+## Implemented and available for source-built testing
+
+- `src/native_input_core.hpp/.cpp`: original single-owner-thread, allocation-free *event ring* and persistent key/mouse/controller states in portable C++17. Relative mouse motion is preserved without conversion to cursor coordinates or emulated joystick axes. Absolute raw mouse reports remain explicitly tagged `MouseAbsolute` rather than mislabeled pixels/deltas. Keys are indexed by hardware make-code plus E0/E1 flags. Typematic repeats do not create extra key-down events; text input/IME stays separate. Wheel data preserves raw signed units and horizontal axis. Up to four native gamepad snapshots track buttons and raw signed axes/triggers. Focus loss clears pressed states and queued events, emitting a guaranteed focus-loss notice.
+- `fixtures/native_input_core_tests.cpp`: deterministic Linux/Windows scenarios for distinct E0/E1 keys, repeats, raw mouse axes, wheel sign, controller connect/disconnect, focus, bounds and overflow.
+- `fixtures/native_win_input_probe.cpp`: executable Windows-only native Win32 test. Creates an actual Win32 window, registers foreground HID keyboard/mouse collections with `RegisterRawInputDevices` (`RIDEV_DEVNOTIFY`, **no** `RIDEV_INPUTSINK` or `RIDEV_EXINPUTSINK`), reads `WM_INPUT` by bounded `GetRawInputData`, processes keyboard/mouse in the state core, and calls operating-system `XInputGetState` (XInput 1.4, up to four slots). Unregisters raw input and releases the window. No system-wide hooks, background key logging, controller virtualization, drivers or permanent background service. It does not write keys or device identifiers to a file.
+- Run CI smoke with no arguments; it verifies registration, Win32 message dispatch, XInput native API calls and cleanup, **not** human input or timing. Local manual mode: `native_win_input_probe.exe --interactive` opens a window and polls XInput while focused, reading actual Raw Input events if supported hardware is present. Close the window to stop.
+
+**Performance:** hardware timestamps and end-to-end input-to-photon latency have not been measured. The event metadata is application receipt time in QueryPerformanceCounter ticks. The fixed event ring can overflow under overload (reported dropped count); a full input/game UI must choose a policy for overflow and replay/recovery. The core is designed for a serialized input owner thread, not concurrent unsynchronized readers and writers. The 512-event ring is a research limit, not a final tuned value. Device handles remain ephemeral process-local tokens.
+
+**Scope limits:** Raw Input is foreground-only. A global key-down snapshot could combine two keyboards that share the same scan code; device-specific per-key state and an immutable frame snapshot are future gates. XInput exposes standard buttons/sticks/triggers, not the full range of specialized DualSense controls. No actual connected controller, mouse hardware latency, force feedback, touchpad or gyro has been independently exercised in hosted CI.
+
+## Selection architecture, no controller emulation
+
+| Device class | Primary Windows candidate | Native fallback | Linux path | Claim boundary |
+|---|---|---|---|---|
+| Keyboard + mouse | GameInput 4 event/readings for one unified time base; parallel Raw Input only where app selects this backend | Win32 Raw Input foreground; Unicode/IME through standard text messages separately | SDL3 or native Wayland/X11/evdev as validated | Direct relative mouse input is not virtual gamepad translation |
+| Xbox-family controller | GameInput 4 device info and gamepad readings | Operating-system XInput 1.4, physical controllers only | SDL3 HIDAPI or libudev/evdev implementation | XInput 1.4 cannot expose every custom feature |
+| DualSense / DualSense Edge | GameInput v4 with explicit device discovery, sensor/touch/haptic capabilities; optional first-party GameInput sample adaptive-trigger helper | SDL3/HIDAPI when individually verified and properly licensed | SDL3/HIDAPI with native backend and device availability | Do not assume feature parity between USB and Bluetooth |
+| Generic HID, racing wheel, arcade stick | GameInput controller kind/axes/buttons with per-device mapping | SDL3 Gamepad/HIDAPI (not a synthetic Xbox controller) | SDL3 native | Require actual device testing and profile/mapping |
+| Feedback | Capability-driven haptic/lighting/rumble APIs | Only device-specific, documented, verified output | Per-device supported outputs | Never send unknown HID output to unverified devices |
+
+### Verified public information
+
+- [Microsoft GameInput](https://github.com/microsoftconnect/GameInput) provides an API v4 header, keyboard/mouse/gamepad readings and generalized controller support, and is distributed for Windows PC via Microsoft.GameInput NuGet; consult the runtime/SDK licensing, OS requirements and device-specific behavior.
+- The [Microsoft GameInput companion DualSense helper](https://github.com/microsoftconnect/GameInput/tree/main/companion/DualSense) at upstream commit [4a3150c](https://github.com/microsoftconnect/GameInput/commit/4a3150cbe27d) (2026-11-17) provides sample raw USB-format 0x02 output report generation for both 054C:0CE6 DualSense and 054C:0DF2 Edge. Its `SetDualSenseTriggerOff`, Feedback, Weapon and Vibration operations have **discrete parameter bounds**. It requires GameInput 3+ for raw report output, must validate advertised report support and HRESULT, and explicitly does **not** implement Bluetooth framing or checksums. It is not an official Sony SDK. We have not copied or executed it.
+- Microsoft documents [Raw Input](https://learn.microsoft.com/en-us/windows/win32/inputdev/using-raw-input) with `RegisterRawInputDevices`, `WM_INPUT`, `GetRawInputData`; one window per device class owns process registration. Our probe uses these actual desktop calls.
+- [Sony PlayStation PC accessories guidance](https://www.playstation.com/en-us/pc/pc-accessories/) says adaptive triggers and haptic effects only work in supported titles; haptic effects may require USB. Do not claim automatic wireless parity.
+- [SDL3](https://github.com/libsdl-org/SDL) is a cross-platform candidate, not a reason to inject XInput emulation. Evaluate SDL3 device support and licensing independently before adopting.
+
+## Next acceptance gates
+
+1. Integrate official GameInput SDK 4.x through a reproducible, license-compatible build option and runtime feature detection. Select **one active input provider per physical device**; deduplicate XInput/GameInput overlapping device enumeration. Do not load an unreviewed driver or virtual controller.
+2. Add per-device keyboard state, hotplug/reconnect and stable device identity without recording private device identifiers; restore/reset pressed state on disconnect, alt-tab, session change or focus loss.
+3. Hardware acceptance on Windows 10/11 with physical USB/Bluetooth DualSense/Edge, Xbox and generic HID; verify buttons, analog axes, touchpad, gyro, adaptive feedback, lightbar, microphone/audio endpoints and rumble individually. Require explicit user authorization and safe low-force range for trigger experiments; stop effects on shutdown/unplug.
+4. Attach timing markers to OS receipt, simulation, render submission and Present to report actual p50/p95/p99 input-to-present latency under load. Optimize with measurements rather than claiming zero input lag.
+5. Build a native Linux ELF input fixture, test controller mapping via SDL3 and PipeWire/evdev, and avoid assuming Proton is equivalent to native Linux.
+6. When legally obtained game binaries and data become available, map physical inputs to in-game actions, accessibility/remapping, menus, text chat and vehicles according to real game interfaces. No GTA VI gameplay capability is claimed from synthetic tests.
+
+No copyrighted game content, Xbox executables, Sony firmware, proprietary runtime or console emulator is included.

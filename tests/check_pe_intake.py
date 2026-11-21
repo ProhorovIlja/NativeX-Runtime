@@ -43,9 +43,9 @@ def main(exe):
         assert info['machine']=='AMD64' and info['image_base']==0x140000000,info
         assert info['section_names']==['.rdata'] and info['entry_rva']==0x1000,info
         assert info['import_modules']==['KERNEL32.dll'],info
-    assert info['delay_import_modules']==['USER32.dll'],info
-    assert info['relocation_blocks']==1,info
-    assert info['has_tls_directory'] is True,info
+        assert info['delay_import_modules']==['USER32.dll'],info
+        assert info['relocation_blocks']==1,info
+        assert info['has_tls_directory'] is True,info
         assert info['executable_tested'] is False,info
         for data in (p.read_bytes()[:160],b'not a PE file'):
             bad=d/'bad.exe';bad.write_bytes(data)
@@ -53,7 +53,7 @@ def main(exe):
             assert run.returncode!=0 and 'pe_intake:' in run.stderr
         # Negative cases: malformed metadata must fail without executing the image.
         for raw_offset, bad_value in ((0x280+4, 0xffffffff),
-                                      (opt+112+9*8+4, 8),
+                                      (0x98+112+9*8+4, 8),
                                       (0x2c0, 0)):
             corrupted=bytearray(p.read_bytes())
             struct.pack_into('<I',corrupted,raw_offset,bad_value)

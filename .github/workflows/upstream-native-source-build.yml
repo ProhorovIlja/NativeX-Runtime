@@ -1,9 +1,10 @@
-name: Pinned public native upstream source build
+name: Pinned native runtime and original PE32+ execution
 on:
   pull_request:
     paths:
       - ".github/workflows/upstream-native-source-build.yml"
       - "tools/verify_anyxboxx_native.ps1"
+      - "fixtures/native-pe-exec/**"
   workflow_dispatch:
 
 permissions:
@@ -22,6 +23,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - name: Compile exact pinned public source, without launching game binaries
+      - name: Compile pinned source and execute only original PE32+ test programs
         shell: pwsh
-        run: .\tools\verify_anyxboxx_native.ps1
+        run: .\tools\verify_anyxboxx_native.ps1 -RunSynthetic

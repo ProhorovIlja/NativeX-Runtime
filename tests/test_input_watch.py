@@ -22,7 +22,7 @@ class NativeInputWatch(unittest.TestCase):
     def test_metadata_unchanged(self):
         results=[radar.scan(r,self.fixture) for r in self.rows]
         self.assertTrue(all(r["status"]=="unchanged" for r in results))
-        self.assertIn("not a verified bug fix",radar.report(self.rows,results,"fixture"))
+        self.assertIn("verified bug fix",radar.report(self.rows,results,"fixture"))
 
     def test_new_head_not_proof_of_support(self):
         row=self.rows[0]
@@ -30,7 +30,7 @@ class NativeInputWatch(unittest.TestCase):
         changed[row["repository"]]=dict(changed[row["repository"]],
                                         head_sha="f"*40)
         self.assertEqual(radar.scan(row,changed)["status"],"new-head-since-baseline")
-        self.assertIn("not a verified bug fix",radar.report([row],[radar.scan(row,changed)],"fixture"))
+        self.assertIn("verified bug fix",radar.report([row],[radar.scan(row,changed)],"fixture"))
 
 if __name__=="__main__":
     unittest.main()

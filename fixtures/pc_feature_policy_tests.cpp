@@ -172,9 +172,9 @@ void intel_xess3_vulkan_sr_does_not_authorize_fg_or_xell() {
     c.vulkan.xess_sr=true;
     c.vulkan.xess_fg=true;
     c.vulkan.xell=true;
-    const auto linux=resolve(Preferences{},c);
-    ensure(linux.backend==Backend::Vulkan && linux.upscaler==Upscaler::Xess &&
-           linux.frame_gen==FrameGen::Off && linux.latency==Latency::Engine,
+    const auto linux_selection=resolve(Preferences{},c);
+    ensure(linux_selection.backend==Backend::Vulkan && linux_selection.upscaler==Upscaler::Xess &&
+           linux_selection.frame_gen==FrameGen::Off && linux_selection.latency==Latency::Engine,
            "XeSS3 Vulkan enabled unsupported FG or XeLL on Linux");
     c.os=Os::Windows;
     Preferences requested{};

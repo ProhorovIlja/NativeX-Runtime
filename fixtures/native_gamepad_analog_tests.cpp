@@ -140,6 +140,24 @@ void focus_and_hotplug_neutralization(){
     check(sample(router.snapshot(128),2,config,config,output)==Status::Ok &&
           !output.connected,"reacquired focus brought stale controller input back");
 }
+void continuous_trigger_floor(){
+    FrameSnapshot frame{};
+    Gamepad pad{};pad.connected=true;
+    pad.left_trigger=127;pad.right_trigger=255;
+    frame.pads[0]=pad;
+    auto cfg=no_deadzone();
+    Controller output{};
+    check(sample(frame,0,cfg,cfg,output,127)==Status::Ok &&
+          output.connected && output.left_trigger==0.0f &&
+          output.right_trigger==1.0f,
+          "trigger floor not applied or remaining travel not rescaled");
+    check(sample(frame,0,cfg,cfg,output,0)==Status::Ok &&
+          approx(output.left_trigger,127.0f/255.0f),
+          "default full-range trigger precision lost");
+    check(sample(frame,0,cfg,cfg,output,255)==Status::Ok &&
+          output.left_trigger==0.0f && output.right_trigger==0.0f,
+          "trigger floor 255 must not divide by zero");
+}
 void neutral_and_status_names(){
     FrameSnapshot frame{};
     frame.pads[0].connected=true;
@@ -163,13 +181,14 @@ int main() {
         curve_inversion_and_independent_sticks();
         invalid_configuration_is_atomic();
         focus_and_hotplug_neutralization();
+        continuous_trigger_floor();
         neutral_and_status_names();
     }catch(const std::exception& e) {
         std::cerr<<"native analog gamepad test FAILED: "<<e.what()<<'\n';
         return 1;
     }
     std::cout<<"{\"kind\":\"native-PC-gamepad-analog-radial\","
-             "\"scenarios\":6,"
+             "\"scenarios\":7,"
              "\"no_extra_smoothing_or_queue\":true,"
              "\"radial_deadzone_and_outer_saturation\":true,"
              "\"cubic_curve_and_inversion\":true,"

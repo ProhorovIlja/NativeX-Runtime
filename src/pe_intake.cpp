@@ -19,6 +19,8 @@ class PE {
   struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal; };
   std::vector<Export> exports;
   std::vector<ImportSymbol> import_symbols, delay_import_symbols;
+  struct RuntimeFunction { uint32_t begin, end, unwind; };
+  std::vector<RuntimeFunction> runtime_functions;
   uint32_t relocation_blocks=0;
   bool has_tls_directory=false;
   uint64_t image_base = 0;
@@ -168,6 +170,25 @@ public:
         if(!done)throw std::runtime_error("unterminated import table");
       }
     }
+    // AMD64 .pdata exception directory = sorted 12-byte RUNTIME_FUNCTION
+    // entries. This is read-only metadata, not interpretation of UNWIND_INFO.
+    // Reject malformed ranges before consumers use this inventory for ABI work.
+    const auto exception=dir(3);
+    if(exception.first || exception.second) {
+      if(!exception.first || !exception.second || exception.second%12u ||
+         exception.second/12u>65536u)
+        throw std::runtime_error("invalid AMD64 exception directory size");
+      const uint32_t image_size=u32(opt+56);
+      const auto first=rva(exception.first,exception.second);
+      for(uint32_t i=0;i<exception.second/12u;i++){
+        const std::size_t p=first+std::size_t(i)*12u;
+        const uint32_t begin=u32(p),end=u32(p+4),unwind=u32(p+8);
+        if(begin>=end || end>image_size || unwind>=image_size || !unwind ||
+           (unwind&3u) || (i && begin<runtime_functions.back().end))
+          throw std::runtime_error("invalid AMD64 runtime function range");
+        runtime_functions.push_back({begin,end,unwind});
+      }
+    }
     const auto reloc=dir(5);
     if(reloc.first && reloc.second){
       uint64_t consumed=0;
@@ -244,7 +265,15 @@ public:
       if(exports[i].forwarder.empty())out<<"null";else out<<quote(exports[i].forwarder);
       out<<"}";
     }
-    out<<"],\"relocation_blocks\":"<<relocation_blocks
+    out<<"],\"runtime_functions\":[";
+    for(size_t i=0;i<runtime_functions.size();i++){
+      if(i)out<<",";
+      const auto& fn=runtime_functions[i];
+      out<<"{\"begin_rva\":"<<fn.begin<<",\"end_rva\":"<<fn.end
+         <<",\"unwind_rva\":"<<fn.unwind<<"}";
+    }
+    out<<"],\"unwind_codes_decoded\":false";
+    out<<",\"relocation_blocks\":"<<relocation_blocks
        <<",\"has_tls_directory\":"<<(has_tls_directory?"true":"false")
        <<",\"section_names\":[";
     for(size_t i=0;i<names.size();i++)out<<(i?",":"")<<quote(names[i]);

@@ -16,7 +16,9 @@ class PE {
   std::vector<Section> sections;
   std::vector<std::string> names, imports, delay_imports;
   struct Export { std::string name; uint32_t ordinal; std::string forwarder; };
+  struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal; };
   std::vector<Export> exports;
+  std::vector<ImportSymbol> import_symbols, delay_import_symbols;
   uint32_t relocation_blocks=0;
   bool has_tls_directory=false;
   uint64_t image_base = 0;
@@ -49,6 +51,34 @@ class PE {
       s.push_back(char(c));
     }
     throw std::runtime_error("unterminated PE name");
+  }
+  // Inspect PE32+ IMAGE_THUNK_DATA64 without resolving or executing imports.
+  // 8-byte entries, strict ordinal flag, bounded per descriptor and globally.
+  void inspect_thunks(uint32_t thunk_rva,const std::string& dll,
+                      std::vector<ImportSymbol>& destination) const {
+    if(!thunk_rva)return; // Import descriptors without INT/IAT are preserved as modules.
+    for(uint64_t i=0;i<=8192;i++){
+      const uint64_t address=uint64_t(thunk_rva)+i*8u;
+      if(address>UINT32_MAX)throw std::runtime_error("import thunk RVA overflow");
+      const uint64_t thunk=u64(rva(uint32_t(address),8));
+      if(!thunk)return;
+      if(i==8192||destination.size()>=32768)
+        throw std::runtime_error("PE import symbol limit exceeded");
+      if(thunk&0x8000000000000000ull){
+        // IMAGE_ORDINAL_FLAG64 set; all bits except low 16 must be zero.
+        if(thunk&0x7fffffffffff0000ull)
+          throw std::runtime_error("invalid PE import ordinal thunk");
+        destination.push_back({dll,std::string{},uint32_t(thunk&0xffffu),true});
+      }else{
+        if(thunk>UINT32_MAX-2u)
+          throw std::runtime_error("invalid PE import-by-name RVA");
+        const uint32_t name_rva=uint32_t(thunk);
+        // IMAGE_IMPORT_BY_NAME = 2-byte hint followed by ASCII NUL string.
+        rva(name_rva,2);
+        destination.push_back({dll,module(name_rva+2u),0u,false});
+      }
+    }
+    throw std::runtime_error("unterminated PE import thunk table");
   }
   static std::string quote(const std::string& s){
     std::ostringstream out;out<<'"';
@@ -129,7 +159,11 @@ public:
           uint32_t name=u32(p+12);
           if(!u32(p)&&!u32(p+4)&&!u32(p+8)&&!name&&!u32(p+16)){done=true;break;}
           if(!name)throw std::runtime_error("missing DLL name");
-          imports.push_back(module(name));
+          const auto dll=module(name);
+          imports.push_back(dll);
+          // OriginalFirstThunk is the lookup table; FirstThunk is fallback.
+          const uint32_t lookup=u32(p)?u32(p):u32(p+16);
+          inspect_thunks(lookup,dll,import_symbols);
         }
         if(!done)throw std::runtime_error("unterminated import table");
       }
@@ -166,7 +200,11 @@ public:
         for(unsigned j=0;j<32;j+=4)all_zero=all_zero && (u32(pos+j)==0);
         if(all_zero){terminated=true;break;}
         if(!(attrs&1)||!name)throw std::runtime_error("unsupported delay import descriptor");
-        delay_imports.push_back(module(name));
+        const auto dll=module(name);
+        delay_imports.push_back(dll);
+        // IMAGE_DELAYLOAD_DESCRIPTOR pINT (offset 16), IAT (offset 12) fallback.
+        const uint32_t lookup=u32(pos+16)?u32(pos+16):u32(pos+12);
+        inspect_thunks(lookup,dll,delay_import_symbols);
       }
       if(!terminated)throw std::runtime_error("unterminated delay imports");
     }
@@ -178,6 +216,26 @@ public:
     for(size_t i=0;i<imports.size();i++)out<<(i?",":"")<<quote(imports[i]);
     out<<"],\"delay_import_modules\":[";
     for(size_t i=0;i<delay_imports.size();i++)out<<(i?",":"")<<quote(delay_imports[i]);
+    out<<"],\"import_symbols\":[";
+    for(size_t i=0;i<import_symbols.size();i++){
+      if(i)out<<",";
+      const auto& x=import_symbols[i];
+      out<<"{\"module\":"<<quote(x.module)<<",\"name\":";
+      if(x.by_ordinal)out<<"null";else out<<quote(x.name);
+      out<<",\"ordinal\":";
+      if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<"}";
+    }
+    out<<"],\"delay_import_symbols\":[";
+    for(size_t i=0;i<delay_import_symbols.size();i++){
+      if(i)out<<",";
+      const auto& x=delay_import_symbols[i];
+      out<<"{\"module\":"<<quote(x.module)<<",\"name\":";
+      if(x.by_ordinal)out<<"null";else out<<quote(x.name);
+      out<<",\"ordinal\":";
+      if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<"}";
+    }
     out<<"],\"exports\":[";
     for(size_t i=0;i<exports.size();i++){
       if(i)out<<",";

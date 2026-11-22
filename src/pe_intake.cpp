@@ -115,10 +115,10 @@ class PE {
     const std::size_t start=rva(fn.unwind,full);
     std::size_t index=0;
     while(index<slots){
-      const std::size_t entry=start+4u+index*2u;
-      const unsigned instruction_offset=b[entry];
-      const unsigned opcode=b[entry+1u]&15u;
-      const unsigned operand=b[entry+1u]>>4u;
+      const std::size_t code_slot=start+4u+index*2u;
+      const unsigned instruction_offset=b[code_slot];
+      const unsigned opcode=b[code_slot+1u]&15u;
+      const unsigned operand=b[code_slot+1u]>>4u;
       if(instruction_offset>prolog)
         throw std::runtime_error("AMD64 unwind operation beyond function prolog");
       unsigned extra=0;
@@ -148,7 +148,7 @@ class PE {
       if(index+extra>=slots)
         throw std::runtime_error("truncated variable-length unwind operation");
       if(opcode==1u){
-        const std::size_t extension=entry+2u;
+        const std::size_t extension=code_slot+2u;
         allocation=operand==0u
           ?uint64_t(u16(extension))*8u
           :uint64_t(u32(extension));

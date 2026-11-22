@@ -356,3 +356,21 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(d3d12_warp_tile_alias_exact_readback
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
 endif()
+
+# Portable zero-allocation keyboard/mouse/gamepad action mapping and deterministic
+# versioned configuration snapshots persisted by the existing native save core.
+add_library(native_action_bindings STATIC src/native_action_bindings.cpp)
+target_include_directories(native_action_bindings PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_action_bindings PUBLIC cxx_std_17)
+add_executable(native_action_bindings_tests fixtures/native_action_bindings_tests.cpp)
+target_link_libraries(native_action_bindings_tests PRIVATE
+  native_action_bindings native_input_core native_save_slots)
+foreach(target native_action_bindings native_action_bindings_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_input_action_remap_profile COMMAND native_action_bindings_tests)
+set_tests_properties(native_pc_input_action_remap_profile PROPERTIES TIMEOUT 25)

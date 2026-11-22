@@ -452,3 +452,21 @@ foreach(target native_nv12_bgra native_nv12_bgra_tests)
   endif()
 endforeach()
 add_test(NAME native_pc_nv12_bgra_surface_conversion COMMAND native_nv12_bgra_tests)
+
+# Native Windows/Linux original BC1 and BC3 CPU compressed-block texture reference.
+# Linear block raster with arbitrary rectangular dimensions; not Xbox tile swizzle.
+add_library(native_bc_texture STATIC src/native_bc_texture.cpp)
+target_include_directories(native_bc_texture PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_bc_texture PUBLIC cxx_std_17)
+add_executable(native_bc_texture_tests fixtures/native_bc_texture_tests.cpp)
+target_link_libraries(native_bc_texture_tests PRIVATE native_bc_texture)
+foreach(target native_bc_texture native_bc_texture_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_bc1_bc3_rectangular_raster_decode
+  COMMAND native_bc_texture_tests)
+set_tests_properties(native_pc_bc1_bc3_rectangular_raster_decode PROPERTIES TIMEOUT 25)

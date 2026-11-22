@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 using namespace scarlett::video;
 namespace {
 void check(bool ok,const char* reason) {

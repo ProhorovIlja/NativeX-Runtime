@@ -392,6 +392,19 @@ endforeach()
 add_test(NAME native_pc_input_action_remap_profile COMMAND native_action_bindings_tests)
 set_tests_properties(native_pc_input_action_remap_profile PROPERTIES TIMEOUT 25)
 
+# Original native Win32 named file-mapping / Linux POSIX shm_open shared memory.
+# Two CPU virtual views, independent child process, 64 KiB full-byte oracle.
+# This is CPU memory only, not Xbox guest UMA or hardware GPU coherence.
+add_executable(native_shared_cpu64 fixtures/native_shared_cpu64.cpp)
+target_compile_features(native_shared_cpu64 PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(native_shared_cpu64 PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_shared_cpu64 PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_pc_crossprocess_shared_cpu64 COMMAND native_shared_cpu64)
+set_tests_properties(native_pc_crossprocess_shared_cpu64 PROPERTIES TIMEOUT 25)
+
 # Native Win32 D3D12 WARP 12-frame flip-chain and ResizeBuffers acceptance.
 # Real DXGI Present + fence + one-frame pacing, no human-visible GPU claim.
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)

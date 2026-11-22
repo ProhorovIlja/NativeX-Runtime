@@ -1,6 +1,7 @@
 #include "native_save_slots.hpp"
 #include <array>
 #include <cstring>
+#include <cstdio>
 #include <fstream>
 #include <limits>
 #include <system_error>

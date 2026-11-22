@@ -1,5 +1,9 @@
 # Windows-first native PC technology architecture (November 22, 2026)
 
+
+**Additional independently source-tested foundation:** [x64 PE .xdata V1 parsing](PE32_AMD64_XDATA_V1_2026-11-22.md), [fail-closed snapshot slot I/O](NATIVE_PC_SAVE_RECOVERY_2026-11-22.md), and [native radial gamepad input stage](NATIVE_PC_GAMEPAD_ANALOG_2026-11-22.md) in PRs #82–84. [Full evidence and scope](NATIVE_PE_SAVE_INPUT_SIXTH_PASS_2026-11-22.md). Official GameInput, DirectStorage, neural-rendering providers and Xbox GDK remain separate integration/hardware acceptance challenges, **not** implied by synthetic Windows/Linux CI.
+
+
 **Newest native x64 OS/loader interoperability checks:** Windows/Linux C++17 `pe_intake` now validates PE AMD64 `.pdata` and `IMAGE_TLS_DIRECTORY64` metadata; genuine source-built Windows x64 W^X code executes `RaiseException` across a dynamically registered OS unwind entry; normal Windows `LoadLibraryEx` triggers TLS callbacks before DLL main and maintains independent per-thread storage; a fifth Windows-only CTest verifies that the very same compiled MSVC DLL's TLS/.pdata is properly parsed and corruption rejected (PRs [#76](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/76)–[#80](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/80), [latest PR CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44973330221)). Source, upstream comparisons and missing GDK/title evidence are in the [native PE loader/ABI audit](NATIVE_PC_PE_EXCEPTION_TLS_INTEGRATION_2026-11-22.md). **No Xbox EXE, third-party loader TLS equivalence or game start tested.**
 
 

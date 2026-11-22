@@ -1,5 +1,8 @@
 # Windows-first native PC technology architecture (November 22, 2026)
 
+**New host ABI/graphics/memory acceptance:** [PE32+ named/ordinal/delayed import inventory](PE32_IMPORT_SYMBOLS_2026-11-22.md) checks the future GDK import visibility; original [BC1/BC3 CPU texture decoder](NATIVE_BC1_BC3_TEXTURE_2026-11-22.md) and [actual Windows WARP compressed BC GPU SRV shader+readback differential](NATIVE_WIN_D3D12_BC_GPU_CPU_2026-11-22.md) each passed; [Windows VirtualAlloc2 64 KiB CPU placeholder remap](NATIVE_WIN_PLACEHOLDER64_2026-11-22.md) verified exact backing address aliasing without Xbox guest UMA equivalence (PRs [#71](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/71)–[#74](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/74), [merged-branch CI 44971613467](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44971613467)). [Third-pass audit](NATIVE_ABI_GPU_MEMORY_THIRD_PASS_2026-11-22.md) distinguishes independently source-built results, upstream-only claims, SDK licenses and missing title/hardware acceptance.
+
+
 **Latest executed platform gates:** [cross-process CPU mapping](NATIVE_CPU_CROSSPROCESS_64K_2026-11-22.md), [12-frame live-resizable DXGI Present](NATIVE_WIN_DXGI_MULTIFRAME_2026-11-22.md), [native localhost-only TCP between child processes](NATIVE_PC_TCP_LOOPBACK_2026-11-22.md) and [strict native NV12 4:2:0→BGRA8](NATIVE_PC_NV12_SURFACE_2026-11-22.md) passed Windows and Linux source-build CI in PRs #65–#68. These cover distinct OS primitives; they are not a finished host game runtime or measured performance improvement. [Updated Xbox/PC upstream audit, license gates, and next hardware/title milestones](NATIVE_PLATFORM_UPSTREAM_AUDIT_2026-11-22.md).
 
 

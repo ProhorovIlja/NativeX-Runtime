@@ -6,6 +6,10 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 
 ## What is here
 
+**Latest verified native PC findings (2026-11-22):** original Windows x64 D3D12 WARP now executes actual `Present` on a two-buffer HWND DXGI swapchain ([PR #52](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/52)), and real reserved GPU resources are tile-mapped in two 64 KiB pages with 128 KiB byte-for-byte readback ([PR #53](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/53)). An independently source-built, GPL-licensed external native PE loader also executed our own fifth Win32 DXGI Present fixture (exit **46**) after the preceding probes returned **42–45** ([PR #54](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/54)). Portable two-slot save integrity/recovery ([PR #49](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/49)) and per-device Raw Input held-state fixes ([PR #50](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/50)) pass native Windows/Linux CI. These tests do **not** implement or launch GTA VI, Xbox D3D12.X, physical-GPU rendering, full game save semantics or finished haptics. [Evidence matrix and real game-port acceptance gates](docs/NATIVE_PORT_GATES_2026-11-22.md).
+
+
+
 
 ### Verified Windows/Linux native progress — 2026-11-22
 

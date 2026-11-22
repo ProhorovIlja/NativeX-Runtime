@@ -8,6 +8,10 @@
 
 ## Native deployment contract
 
+**Newest source-built acceptance (2026-11-22):** native Windows `IDXGISwapChain3::Present` on WARP ([PR #52](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/52)), true D3D12 reserved GPU resources mapped as two 64 KiB tiles with 128 KiB exact readback ([PR #53](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/53)), and DXGI Present from the separate upstream-loader-managed, CRT-free original Windows PE32+ exit-46 test ([PR #54](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/54)). Original native save two-slot integrity ([PR #49](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/49)) and multi-physical-device Raw Input correctness ([PR #50](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/50)) are also source-tested. Full evidence, licensing/SDK restrictions, upcoming title-specific gates, and recent XCL/Xbox2Windows comparisons are in [Native port integration gates](NATIVE_PORT_GATES_2026-11-22.md). These are desktop fixture proofs, not an Xbox game boot, real input latency, official upscaler integration or hardware GPU proof.
+
+
+
 - **Windows**: native x64 process and instruction execution, Win32 services, D3D12/DXGI as primary renderer, optional Vulkan renderer, host input/audio/network/filesystem, correct desktop shader/assets/saves semantics. Xbox ABI/API/command packets still need independent translation.
 - **Linux**: native x86-64 ELF-targeted program or validated static recompilation, Vulkan renderer, native SDL3/PipeWire or ALSA, Linux sockets and io_uring where appropriate. A Windows PE mapped with compatibility DLLs is NOT automatically a Linux-native ELF port. Proton/Wine can serve research comparisons but is not the final no-CPU-emulation, pure native Linux deliverable.
 - **No magic DLL upgrade**: installing a provider SDK, Vulkan loader or DirectStorage redistributable does not implement GPU shader conversion, renderer integration, motion-vector generation, input routing or storage streaming.

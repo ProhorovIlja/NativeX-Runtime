@@ -1,10 +1,10 @@
-// Original safe portable BC1/BC3 4x4 block -> RGBA8 CPU reference fallback.
+// Original safe portable BC1/BC3/BC4/BC5 4x4 block -> RGBA8 CPU reference fallback.
 // Linear D3D block raster only. NOT proprietary Xbox GPU swizzle or BC7 decode.
 #pragma once
 #include <cstddef>
 #include <cstdint>
 namespace scarlett::texture {
-enum class Format : std::uint8_t { Bc1=1, Bc3=3 };
+enum class Format : std::uint8_t { Bc1=1, Bc3=3, Bc4=4, Bc5=5 };
 enum class Status : std::uint8_t {
     Ok,NullPointer,InvalidDimensions,InvalidStride,BufferTooShort,UnsupportedFormat
 };

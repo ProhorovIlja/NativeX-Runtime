@@ -56,6 +56,12 @@ std::array<std::uint8_t,8> alpha_table(const std::uint8_t* block) noexcept {
     }
     return out;
 }
+std::uint64_t index_bits48(const std::uint8_t* block) noexcept {
+    std::uint64_t bits=0;
+    for(std::size_t i=0;i<6;i++)
+        bits|=static_cast<std::uint64_t>(block[i+2u])<<(8u*i);
+    return bits;
+}
 bool required(std::size_t rows,std::size_t pitch,std::size_t row_bytes,
               std::size_t& bytes) noexcept {
     if(rows==0 || pitch<row_bytes)return false;
@@ -70,11 +76,12 @@ Status decode(const Surface& src,Output dst,Format kind) noexcept {
     if(!src.width || !src.height ||
        src.width>MaxDimension || src.height>MaxDimension)
         return Status::InvalidDimensions;
-    if(kind!=Format::Bc1 && kind!=Format::Bc3)
+    if(kind!=Format::Bc1 && kind!=Format::Bc3 &&
+       kind!=Format::Bc4 && kind!=Format::Bc5)
         return Status::UnsupportedFormat;
     const std::size_t width=src.width,height=src.height;
     const std::size_t block_columns=(width+3u)/4u,block_rows=(height+3u)/4u;
-    const std::size_t block_bytes=kind==Format::Bc3?16u:8u;
+    const std::size_t block_bytes=(kind==Format::Bc3 || kind==Format::Bc5)?16u:8u;
     std::size_t required_src=0,required_dest=0;
     if(!required(block_rows,src.block_pitch,block_columns*block_bytes,
                  required_src) ||
@@ -88,6 +95,33 @@ Status decode(const Surface& src,Output dst,Format kind) noexcept {
     for(std::size_t by=0;by<block_rows;by++){
         for(std::size_t bx=0;bx<block_columns;bx++){
             const auto* block=src.blocks+by*src.block_pitch+bx*block_bytes;
+            if(kind==Format::Bc4 || kind==Format::Bc5){
+                // BC4: one 8-byte UNORM block -> red. BC5: two independent
+                // 8-byte UNORM blocks -> red and green. B=0, A=255.
+                const auto reds=alpha_table(block);
+                const auto red_indices=index_bits48(block);
+                std::array<std::uint8_t,8> greens{};
+                std::uint64_t green_indices=0;
+                if(kind==Format::Bc5){
+                    greens=alpha_table(block+8u);
+                    green_indices=index_bits48(block+8u);
+                }
+                for(std::size_t py=0;py<4;py++){
+                    const auto y=by*4u+py;
+                    if(y>=height)break;
+                    for(std::size_t px=0;px<4;px++){
+                        const auto x=bx*4u+px;
+                        if(x>=width)break;
+                        const auto index=static_cast<unsigned>(py*4u+px);
+                        auto* out=dst.rgba+y*dst.pitch+x*4u;
+                        out[0]=reds[(red_indices>>(3u*index))&7u];
+                        out[1]=kind==Format::Bc5
+                            ?greens[(green_indices>>(3u*index))&7u]:0u;
+                        out[2]=0u;out[3]=255u;
+                    }
+                }
+                continue;
+            }
             const auto* colors=block+(kind==Format::Bc3?8u:0u);
             const auto table=color_table(colors,kind==Format::Bc3);
             const auto indices=u32(colors+4);
@@ -95,8 +129,7 @@ Status decode(const Surface& src,Output dst,Format kind) noexcept {
             std::uint64_t alpha_bits=0;
             if(kind==Format::Bc3){
                 alpha=alpha_table(block);
-                for(std::size_t k=0;k<6;k++)
-                    alpha_bits|=static_cast<std::uint64_t>(block[k+2])<<(8u*k);
+                alpha_bits=index_bits48(block);
             }
             for(std::size_t py=0;py<4;py++){
                 const std::size_t y=by*4u+py;

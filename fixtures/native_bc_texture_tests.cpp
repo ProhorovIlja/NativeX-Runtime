@@ -143,6 +143,95 @@ void malformed_inputs_never_write(){
     bad=good;bad.block_pitch=32;bad.block_bytes=31;
     expect(bad,dest,Format::Bc3,Status::BufferTooShort);
 }
+void bc4_unorm_eight_entry_palette(){
+    std::array<std::uint8_t,8> block{};
+    block[0]=255;block[1]=0;
+    // First texels use 3-bit indices 0,1,2,7 in little-endian order.
+    const std::uint64_t bits=0ull|(1ull<<3u)|(2ull<<6u)|(7ull<<9u);
+    for(unsigned i=0;i<6;i++)
+        block[2u+i]=static_cast<std::uint8_t>(bits>>(8u*i));
+    std::array<std::uint8_t,64> output{};
+    check(decode({block.data(),block.size(),8,4,4},
+                 {output.data(),output.size(),16},Format::Bc4)==Status::Ok,
+          "BC4 8-level decode failed");
+    rgba(output.data()+0,255,0,0,255);
+    rgba(output.data()+4,0,0,0,255);
+    rgba(output.data()+8,218,0,0,255);
+    rgba(output.data()+12,36,0,0,255);
+    block[0]=0;block[1]=255;
+    check(decode({block.data(),block.size(),8,4,4},
+                 {output.data(),output.size(),16},Format::Bc4)==Status::Ok,
+          "BC4 6-level decode failed");
+    rgba(output.data()+0,0,0,0,255);
+    rgba(output.data()+4,255,0,0,255);
+    rgba(output.data()+8,51,0,0,255);
+    rgba(output.data()+12,255,0,0,255);
+}
+void bc5_unorm_independent_channels(){
+    std::array<std::uint8_t,16> block{};
+    block[0]=200;block[1]=0;       // high endpoint red
+    block[8]=0;block[9]=200;       // low endpoint green
+    const std::uint64_t bits=0ull|(1ull<<3u)|(2ull<<6u)|(7ull<<9u);
+    for(unsigned i=0;i<6;i++){
+        block[2u+i]=static_cast<std::uint8_t>(bits>>(8u*i));
+        block[10u+i]=static_cast<std::uint8_t>(bits>>(8u*i));
+    }
+    std::array<std::uint8_t,64> output{};
+    check(decode({block.data(),block.size(),16,4,4},
+                 {output.data(),output.size(),16},Format::Bc5)==Status::Ok,
+          "BC5 independent channels decode failed");
+    rgba(output.data()+0,200,0,0,255);
+    rgba(output.data()+4,0,200,0,255);
+    rgba(output.data()+8,171,40,0,255);
+    rgba(output.data()+12,28,255,0,255);
+}
+void bc5_odd_rectangular_blocks_and_fail_closed(){
+    constexpr std::size_t source_pitch=37,output_pitch=24;
+    std::array<std::uint8_t,source_pitch*2u> source{};
+    std::array<std::uint8_t,output_pitch*7u> output{};
+    source.fill(0xCA);output.fill(0xB7);
+    auto solid_rg=[&](std::size_t offset,std::uint8_t r,std::uint8_t g){
+        std::fill_n(source.data()+offset,16,static_cast<std::uint8_t>(0));
+        source[offset]=r;source[offset+1u]=r;
+        source[offset+8u]=g;source[offset+9u]=g;
+    };
+    solid_rg(0,10,20);solid_rg(16,30,40);
+    solid_rg(source_pitch,50,60);solid_rg(source_pitch+16u,70,80);
+    const Surface valid{source.data(),source.size(),source_pitch,5,7};
+    const Output target{output.data(),output.size(),output_pitch};
+    check(decode(valid,target,Format::Bc5)==Status::Ok,
+          "non-power-of-two BC5 raster failed");
+    for(std::size_t y=0;y<7;y++){
+        for(std::size_t x=0;x<5;x++){
+            const bool top=y<4,left=x<4;
+            const auto* pixel=output.data()+y*output_pitch+x*4u;
+            rgba(pixel,top?(left?10:30):(left?50:70),
+                 top?(left?20:40):(left?60:80),0,255);
+        }
+        for(std::size_t x=20;x<output_pitch;x++)
+            check(output[y*output_pitch+x]==0xB7,
+                  "BC5 output padding overwritten");
+    }
+    for(std::size_t row=0;row<2;row++)
+        for(std::size_t k=32;k<source_pitch;k++)
+            check(source[row*source_pitch+k]==0xCA,
+                  "BC5 source block padding modified");
+    auto fail=[&](Surface bad,Output dst,Format format,Status expected){
+        const auto saved=output;
+        check(decode(bad,dst,format)==expected,"invalid BC4/5 buffer accepted");
+        check(output==saved,"invalid BC4/5 buffer partially wrote output");
+    };
+    auto bad=valid;bad.block_pitch=31;
+    fail(bad,target,Format::Bc5,Status::InvalidStride);
+    bad=valid;bad.block_bytes=source_pitch+31u;
+    fail(bad,target,Format::Bc5,Status::BufferTooShort);
+    bad=valid;bad.block_pitch=15;
+    fail(bad,target,Format::Bc4,Status::InvalidStride);
+    bad=valid;bad.block_bytes=source_pitch+15u;
+    fail(bad,target,Format::Bc4,Status::BufferTooShort);
+    fail(valid,{output.data(),output.size(),19},Format::Bc5,
+         Status::InvalidStride);
+}
 }
 int main(){
     try{
@@ -151,12 +240,15 @@ int main(){
         bc3_independent_alpha_and_opaque_four_color();
         odd_block_dimensions_and_padded_raster();
         malformed_inputs_never_write();
+        bc4_unorm_eight_entry_palette();
+        bc5_unorm_independent_channels();
+        bc5_odd_rectangular_blocks_and_fail_closed();
     }catch(const std::exception& e){
-        std::cerr<<"native BC1/BC3 decoder FAIL: "<<e.what()<<"\n";
+        std::cerr<<"native BC1/BC3/BC4/BC5 decoder FAIL: "<<e.what()<<"\n";
         return 1;
     }
-    std::cout<<"{\"kind\":\"native-bc1-bc3-rectangular-texel-raster\","
-             "\"scenarios\":5,"
+    std::cout<<"{\"kind\":\"native-bc1-bc3-bc4-bc5-rectangular-texel-raster\","
+             "\"scenarios\":8,"
              "\"rgb565_4color_and_cutout_verified\":true,"
              "\"bc3_alpha_8_and_6_mode_verified\":true,"
              "\"non_power_of_two_raster_verified\":true,"

@@ -36,3 +36,12 @@ if(MSVC)
   target_link_options(scarlett_pe_dxgi_present PRIVATE
     /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
 endif()
+
+# Sixth independent CRT-free optimized Windows PE32+ program: 8KiB .bss
+# and .rdata verification, x64 REP MOVSB with zero dynamic CRT dependency.
+add_executable(scarlett_pe_crtfree_copy crtfree_copy_probe.c)
+if(MSVC)
+  target_compile_options(scarlett_pe_crtfree_copy PRIVATE /W4 /WX /GS- /Oi /O2 /Zl)
+  target_link_options(scarlett_pe_crtfree_copy PRIVATE
+    /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
+endif()

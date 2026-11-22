@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <cstring>
 #include <iostream>
+#include <stdexcept>
 using Microsoft::WRL::ComPtr;
 namespace {
 constexpr UINT SourceWidth=4, SourceHeight=4, TargetWidth=16,TargetHeight=16;

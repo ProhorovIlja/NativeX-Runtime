@@ -126,6 +126,52 @@ void size_zero_and_header_validation(){
     check(broken.commit({},0)==Status::Corrupt,
           "corrupt only-slot overwritten");
 }
+void unreadable_slot_fails_closed_even_with_valid_peer(){
+    TempDirectory tmp;
+    const auto folder=tmp.root/"unreadable slot with spaces";
+    Store store(folder);
+    const std::vector<std::uint8_t> first{'g','e','n','1'};
+    const std::vector<std::uint8_t> second{'g','e','n','2'};
+    const std::vector<std::uint8_t> third{'g','e','n','3'};
+    Snapshot snapshot{};
+    check(store.commit(first,0)==Status::Ok,"initial snapshot for IO error test");
+    // Directories under the reserved slot names are guaranteed not to be
+    // regular snapshot files on either POSIX or Win32 file_size APIs.
+    check(std::filesystem::create_directory(folder/"slot-b.scp"),
+          "failed to create intentionally unreadable slot-b fixture");
+    snapshot={999,{1,2,3}};
+    check(store.load(snapshot)==Status::IoError &&
+          snapshot.generation==0 && snapshot.bytes.empty(),
+          "unreadable slot B was wrongly treated as absent or corrupt");
+    check(store.commit(second,1)==Status::IoError,
+          "valid old slot A improperly allowed write while slot B unreadable");
+    check(!std::filesystem::exists(folder/"save-stage.tmp"),
+          "failed IO generation check unexpectedly published stage");
+    check(std::filesystem::remove(folder/"slot-b.scp"),
+          "could not remove unreadable slot-b fixture");
+    check(store.commit(second,1)==Status::Ok,
+          "valid second generation did not recover after slot B restored");
+    // Invert sides: newest B is valid, while older A becomes unreadable.
+    check(std::filesystem::remove(folder/"slot-a.scp"),
+          "could not remove old slot A");
+    check(std::filesystem::create_directory(folder/"slot-a.scp"),
+          "could not replace slot A with unreadable directory");
+    check(store.load(snapshot)==Status::IoError &&
+          snapshot.generation==0 && snapshot.bytes.empty(),
+          "valid newest slot B hid IO failure in older slot A");
+    check(store.commit(third,2)==Status::IoError,
+          "writer accepted ambiguous old slot A");
+    check(std::filesystem::remove(folder/"slot-a.scp"),
+          "could not remove invalid directory slot A");
+    check(store.load(snapshot)==Status::Ok &&
+          snapshot.generation==2 && snapshot.bytes==second,
+          "valid generation B not recoverable after IO error resolved");
+    check(store.commit(third,2)==Status::Ok,
+          "commit failed after clearing IO error on both slots");
+    check(store.load(snapshot)==Status::Ok &&
+          snapshot.generation==3 && snapshot.bytes==third,
+          "generation progression incorrect after IO-error repair");
+}
 void explicit_statuses(){
     check(std::string(status_text(Status::NotFound))=="not-found","not-found label");
     check(std::string(status_text(Status::Conflict))=="generation-conflict",
@@ -136,12 +182,13 @@ int main(){
     try{
         recovery_and_interruption();
         size_zero_and_header_validation();
+        unreadable_slot_fails_closed_even_with_valid_peer();
         explicit_statuses();
     }catch(const std::exception& e){
         std::cerr<<"native two-slot save test FAILED: "<<e.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-windows-linux-two-slot-recovery\","
-             "\"scenarios\":3,"
+             "\"scenarios\":4,"
              "\"two_generations\":true,"
              "\"stage_faults_tested\":true,"
              "\"corrupt_slot_fallback\":true,"

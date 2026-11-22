@@ -357,6 +357,23 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
 endif()
 
+# One integrated Windows native frame: synthetic per-device Raw Input snapshot
+# -> simulation phase -> WARP D3D12 clear -> real DXGI Present -> CPU QPC stats.
+# No virtual controllers, physical hardware or game-title code.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_input_to_present fixtures/native_win_input_to_present.cpp)
+  target_compile_features(native_win_input_to_present PRIVATE cxx_std_17)
+  target_link_libraries(native_win_input_to_present PRIVATE
+    native_input_core native_frame_timeline d3d12 dxgi user32)
+  if(MSVC)
+    target_compile_options(native_win_input_to_present PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_input_frame_to_d3d12_present
+    COMMAND native_win_input_to_present)
+  set_tests_properties(native_win_input_frame_to_d3d12_present
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 35)
+endif()
+
 # Portable zero-allocation keyboard/mouse/gamepad action mapping and deterministic
 # versioned configuration snapshots persisted by the existing native save core.
 add_library(native_action_bindings STATIC src/native_action_bindings.cpp)

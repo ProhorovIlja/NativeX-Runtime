@@ -220,7 +220,7 @@ int run(bool latency_one){
     return 0;
 }
 }
-int main(int argc,char**argv){
+int main(int argc,char** /*argv*/){
     if(argc==1)return run(false);
     std::cerr<<"Usage: native_win_input_to_present\n";return 2;
 }

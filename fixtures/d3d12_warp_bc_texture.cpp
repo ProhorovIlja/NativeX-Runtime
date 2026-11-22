@@ -106,7 +106,7 @@ Bytes make_block(bool bc3){
         throw std::runtime_error("independent CPU BC decoder rejected original block");
     return b;
 }
-bool near(std::uint8_t a,std::uint8_t b){
+bool close_channel(std::uint8_t a,std::uint8_t b){
     const unsigned x=a,y=b;
     return x+2u>=y&&x<=y+2u;
 }
@@ -375,7 +375,7 @@ int run(bool bc3){
             const auto* expected=original.expected.data()+
                      ((y/SampleScale)*SourceWidth+x/SampleScale)*4u;
             for(UINT channel=0;channel<4;channel++)
-                if(!near(actual[channel],expected[channel]))good=false;
+                if(!close_channel(actual[channel],expected[channel]))good=false;
             ++pixels;
         }
     }

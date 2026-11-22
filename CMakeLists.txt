@@ -421,6 +421,22 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
 endif()
 
+# Native OS loopback-only TCP: 2 independent child processes, 256 KiB exact
+# framed request/response, strict checksum, oversize reject before allocation.
+# Infrastructure acceptance, NOT gameplay networking or a listening daemon.
+add_executable(native_tcp_loopback fixtures/native_tcp_loopback.cpp)
+target_compile_features(native_tcp_loopback PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(native_tcp_loopback PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_tcp_loopback PRIVATE -Wall -Wextra -Werror)
+endif()
+if(WIN32)
+  target_link_libraries(native_tcp_loopback PRIVATE ws2_32)
+endif()
+add_test(NAME native_pc_loopback_tcp_framed_transport COMMAND native_tcp_loopback)
+set_tests_properties(native_pc_loopback_tcp_framed_transport PROPERTIES TIMEOUT 30)
+
 # Original no-heap native Windows/Linux NV12 4:2:0 -> BGRA8 CPU fallback.
 # Software surface conversion only; not hardware video bitstream decoding.
 add_library(native_nv12_bgra STATIC src/native_nv12_bgra.cpp)

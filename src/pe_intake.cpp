@@ -243,10 +243,10 @@ public:
         const uint32_t callbacks_rva=checked_rva(callback_va);
         bool terminated=false;
         for(uint64_t i=0;i<=256u;i++){
-          const uint64_t entry=uint64_t(callbacks_rva)+i*8u;
-          if(entry>UINT32_MAX)
+          const uint64_t callback_entry_rva=uint64_t(callbacks_rva)+i*8u;
+          if(callback_entry_rva>UINT32_MAX)
             throw std::runtime_error("TLS callback table RVA overflow");
-          const uint64_t function_va=u64(rva(uint32_t(entry),8));
+          const uint64_t function_va=u64(rva(uint32_t(callback_entry_rva),8));
           if(!function_va){terminated=true;break;}
           if(i==256u)throw std::runtime_error("TLS callback count limit exceeded");
           tls_callbacks.push_back(checked_rva(function_va));

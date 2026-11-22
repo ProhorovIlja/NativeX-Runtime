@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
+#include <string>
 #include <vector>
 using namespace scarlett::texture;
 namespace {
@@ -232,6 +233,73 @@ void bc5_odd_rectangular_blocks_and_fail_closed(){
     fail(valid,{output.data(),output.size(),19},Format::Bc5,
          Status::InvalidStride);
 }
+
+constexpr std::array<std::uint8_t,16> Bc7SampleA{{
+    0xc0,0x3f,0x00,0xf0,0x07,0xfc,0xff,0x80,
+    0xf0,0x78,0x10,0x32,0x54,0x76,0x98,0xba
+}};
+constexpr std::array<std::uint8_t,16> Bc7SampleB{{
+    0xc0,0x07,0x6f,0x24,0xbb,0xa1,0x96,0x1e,
+    0x11,0x32,0x54,0x76,0x98,0xba,0xdc,0xfe
+}};
+void bc7_mode6_endpoints_pbits_and_anchor(){
+    std::array<std::uint8_t,64> pixels{};
+    check(decode({Bc7SampleA.data(),16,16,4,4},
+                 {pixels.data(),pixels.size(),16},
+                 Format::Bc7Mode6)==Status::Ok,"BC7 mode6 gradient rejected");
+    // Four exact independent endpoint/index oracles from a source-built
+    // bit-level encoder, including 3-bit anchor and alpha interpolation.
+    rgba(pixels.data(),255,1,1,255);
+    rgba(pixels.data()+4,0,254,254,0);
+    rgba(pixels.data()+8,120,135,135,120);
+    rgba(pixels.data()+12,135,120,120,135);
+    rgba(pixels.data()+16,255,1,1,255);
+    rgba(pixels.data()+20,239,17,17,239);
+    check(decode({Bc7SampleB.data(),16,16,4,4},
+                 {pixels.data(),pixels.size(),16},
+                 Format::Bc7Mode6)==Status::Ok,"BC7 second mode6 rejected");
+    rgba(pixels.data(),30,70,110,150);
+    rgba(pixels.data()+60,121,101,81,61);
+}
+void bc7_mode6_rectangular_atomic_rejection(){
+    constexpr std::size_t row_bytes=39,pitch=28;
+    std::array<std::uint8_t,row_bytes*2> compressed{};
+    std::array<std::uint8_t,pitch*7> pixels{};
+    compressed.fill(0xe9);pixels.fill(0xa3);
+    for(std::size_t by=0;by<2;by++)
+        for(std::size_t bx=0;bx<2;bx++){
+            const auto& block=(by==bx)?Bc7SampleA:Bc7SampleB;
+            std::copy(block.begin(),block.end(),
+                      compressed.begin()+by*row_bytes+bx*16u);
+        }
+    const Surface source{compressed.data(),compressed.size(),row_bytes,5,7};
+    const Output dest{pixels.data(),pixels.size(),pitch};
+    check(decode(source,dest,Format::Bc7Mode6)==Status::Ok,
+          "odd 5x7 BC7 mode6 raster rejected");
+    rgba(pixels.data(),255,1,1,255);
+    rgba(pixels.data()+4u*4u,30,70,110,150);
+    rgba(pixels.data()+4u*pitch,30,70,110,150);
+    rgba(pixels.data()+4u*pitch+4u*4u,255,1,1,255);
+    for(std::size_t y=0;y<7;y++)
+        for(std::size_t k=20;k<pitch;k++)
+            check(pixels[y*pitch+k]==0xa3,"BC7 output padding overwritten");
+    const auto retained=pixels;
+    compressed[16]=0u;
+    check(decode(source,dest,Format::Bc7Mode6)==Status::UnsupportedBlockMode &&
+          pixels==retained,"reserved BC7 mode wrote partial output");
+    compressed[16]=0x80u;
+    check(decode(source,dest,Format::Bc7Mode6)==Status::UnsupportedBlockMode &&
+          pixels==retained,"unimplemented BC7 mode 7 accepted");
+    compressed[16]=Bc7SampleB[0];
+    check(decode({compressed.data(),row_bytes+31,row_bytes,5,7},dest,
+                 Format::Bc7Mode6)==Status::BufferTooShort &&
+          pixels==retained,"truncated BC7 row wrote output");
+    check(decode(source,{pixels.data(),pixels.size(),19},
+                 Format::Bc7Mode6)==Status::InvalidStride &&
+          pixels==retained,"invalid BC7 stride wrote output");
+    check(std::string(status_name(Status::UnsupportedBlockMode))==
+          "unsupported-block-mode","BC7 mode rejection status changed");
+}
 }
 int main(){
     try{
@@ -243,17 +311,19 @@ int main(){
         bc4_unorm_eight_entry_palette();
         bc5_unorm_independent_channels();
         bc5_odd_rectangular_blocks_and_fail_closed();
+        bc7_mode6_endpoints_pbits_and_anchor();
+        bc7_mode6_rectangular_atomic_rejection();
     }catch(const std::exception& e){
-        std::cerr<<"native BC1/BC3/BC4/BC5 decoder FAIL: "<<e.what()<<"\n";
+        std::cerr<<"native BCn/BC7-mode6 decoder FAIL: "<<e.what()<<"\n";
         return 1;
     }
-    std::cout<<"{\"kind\":\"native-bc1-bc3-bc4-bc5-rectangular-texel-raster\","
-             "\"scenarios\":8,"
+    std::cout<<"{\"kind\":\"native-bcn-bc7-mode6-rectangular-texel-raster\","
+             "\"scenarios\":10,"
              "\"rgb565_4color_and_cutout_verified\":true,"
              "\"bc3_alpha_8_and_6_mode_verified\":true,"
              "\"non_power_of_two_raster_verified\":true,"
              "\"invalid_input_prevalidated\":true,"
-             "\"bc7_decoded\":false,"
+             "\"bc7_mode6_only\":true,"
              "\"console_swizzle_resolved\":false,"
              "\"game_textures_used\":false}\n";
     return 0;

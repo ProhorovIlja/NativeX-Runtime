@@ -5,6 +5,7 @@
 #include <intrin.h>
 #ifdef _MSC_VER
 #pragma intrinsic(__movsb)
+#pragma intrinsic(__stosb)
 #endif
 #define CopyBytes 8192u
 static unsigned char source_page[CopyBytes]; // .bss
@@ -19,9 +20,11 @@ int WINAPI ProbeEntry(void){
     for(i=0;i<16u;i++) {
         if(seed[i]!=(unsigned char)((i+1u)*11u))return 142;
     }
+    // Under MSVC /O2, a byte-zero loop may become an external memset.
+    // Keep this import-free with the inline x64 REP STOSB intrinsic.
+    __stosb(target_page,0u,CopyBytes);
     for(i=0;i<CopyBytes;i++){
         source_page[i]=(unsigned char)((i*29u+7u)%251u);
-        target_page[i]=0u;
     }
     // MSVC guarantees the x64 byte-string intrinsic emits an inline
     // CPU REP MOVSB sequence, not an implicitly linked C runtime memcpy.

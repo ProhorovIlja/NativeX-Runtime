@@ -104,11 +104,10 @@ class PE {
     const unsigned prolog=b[first+1u];
     const unsigned slots=b[first+2u];
     if(version==0u)throw std::runtime_error("invalid AMD64 UNWIND_INFO version zero");
-    UnwindSummary info{fn.unwind,version,flags,prolog,slots,0,false,false,0};
+    UnwindSummary info{fn.unwind,version,flags,prolog,slots,0,false,(flags&4u)!=0u,0};
     if(version!=1u)return info; // newer version-specific formats stay opaque
     if(flags>7u || ((flags&4u)!=0 && (flags&3u)!=0))
       throw std::runtime_error("invalid AMD64 UNWIND_INFO flags");
-    info.chain=(flags&4u)!=0u;
     const std::size_t aligned_slots=(slots+1u)&~std::size_t(1);
     const std::size_t suffix=info.chain?12u:((flags&3u)?4u:0u);
     const std::size_t full=4u+aligned_slots*2u+suffix;
@@ -152,6 +151,11 @@ class PE {
         allocation=operand==0u
           ?uint64_t(u16(extension))*8u
           :uint64_t(u32(extension));
+        // Both unwind ALLOC_LARGE encodings describe a nonzero number
+        // of stack BYTES divisible by eight. The direct 32-bit variant
+        // otherwise admits malformed sizes (e.g. 1) as apparently valid.
+        if(allocation==0u || (allocation&7u)!=0u)
+          throw std::runtime_error("invalid AMD64 large stack allocation size");
       }
       info.stack_bytes+=allocation;
       index+=1u+extra;

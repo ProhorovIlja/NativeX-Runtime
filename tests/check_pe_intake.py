@@ -190,5 +190,47 @@ def main(exe):
         assert unknown['unwind_infos'][0]['version']==3
         assert unknown['unwind_infos'][0]['decoded_v1_basic_operations'] is False
         assert unknown['unwind_infos'][0]['stack_allocation_bytes'] is None
+        # A well-formed 3-slot ALLOC_LARGE form1 is 524288 bytes and
+        # must round-trip. Invalid 1-byte and zero-byte forms must fail.
+        large=bytearray(p.read_bytes())
+        large[0x550:0x55c]=bytes((1,4,3,0,4,0x11,0,0,8,0,0,0))
+        large_path=d/'valid-large-allocation.exe'
+        large_path.write_bytes(large)
+        parsed=json.loads(subprocess.run([exe,str(large_path)],
+                           capture_output=True,text=True,check=True).stdout)
+        assert parsed['unwind_infos'][0]['stack_allocation_bytes']==524288,parsed
+        for bad_size in (0,1,524289):
+            bad=bytearray(large)
+            struct.pack_into('<I',bad,0x556,bad_size)
+            bad_path=d/'bad-large-alloc.exe'
+            bad_path.write_bytes(bad)
+            result=subprocess.run([exe,str(bad_path)],capture_output=True,text=True)
+            assert result.returncode!=0 and 'pe_intake:' in result.stderr,(bad_size,result.stderr)
+
+        # The compact two-slot variant stores the size divided by 8.
+        scaled=bytearray(p.read_bytes())
+        scaled[0x550:0x558]=bytes((1,4,2,0,4,0x01,17,0))
+        scaled_path=d/'valid-scaled-allocation.exe'
+        scaled_path.write_bytes(scaled)
+        parsed=json.loads(subprocess.run([exe,str(scaled_path)],
+                           capture_output=True,text=True,check=True).stdout)
+        assert parsed['unwind_infos'][0]['stack_allocation_bytes']==136,parsed
+        scaled[0x556]=0
+        scaled_path.write_bytes(scaled)
+        rejected=subprocess.run([exe,str(scaled_path)],capture_output=True,text=True)
+        assert rejected.returncode!=0 and 'pe_intake:' in rejected.stderr
+
+        # Common CHAININFO flag remains observable in opaque V2 and V3.
+        for version in (2,3):
+            chained=bytearray(p.read_bytes())
+            chained[0x550]=(4<<3)|version
+            chained_path=d/'future-chained-unwind.exe'
+            chained_path.write_bytes(chained)
+            parsed=json.loads(subprocess.run([exe,str(chained_path)],
+                               capture_output=True,text=True,check=True).stdout)
+            item=parsed['unwind_infos'][0]
+            assert item['version']==version and item['flags']==4,parsed
+            assert item['chained'] is True and item['decoded_v1_basic_operations'] is False,parsed
+            assert item['stack_allocation_bytes'] is None,parsed
     print("synthetic PE32+ named imports, bounded V1 xdata ops, TLS, exceptions and corruption: PASS")
 if __name__=='__main__':main(sys.argv[1])

@@ -8,6 +8,10 @@
 
 ## Native deployment contract
 
+**Recent independently executed PC subcomponents (2026-11-22):** native Linux ELF **graphics** Vulkan `vkCmdDraw` and 1024-pixel CPU image oracle ([PR #56](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/56)), real Windows WARP `IDXGISwapChain2::SetMaximumFrameLatency(1)` waitable queue ([PR #57](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/57)), C++17 native Windows/Linux fixed-memory phase timing p50/p95/p99 ([PR #58](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/58)) and independent immutable Raw Input per-frame state snapshots ([PR #59](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/59)). See [new upstream/DirectStorage and game blocker audit](UPSTREAM_PC_NATIVE_RUNTIME_2026-11-22.md). This confirms separate desktop source fixtures, **not** GTA VI, physical-GPU performance, neural DLSS 5, end-to-end latency or a native Linux game build.
+
+
+
 **Newest source-built acceptance (2026-11-22):** native Windows `IDXGISwapChain3::Present` on WARP ([PR #52](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/52)), true D3D12 reserved GPU resources mapped as two 64 KiB tiles with 128 KiB exact readback ([PR #53](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/53)), and DXGI Present from the separate upstream-loader-managed, CRT-free original Windows PE32+ exit-46 test ([PR #54](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/54)). Original native save two-slot integrity ([PR #49](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/49)) and multi-physical-device Raw Input correctness ([PR #50](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/50)) are also source-tested. Full evidence, licensing/SDK restrictions, upcoming title-specific gates, and recent XCL/Xbox2Windows comparisons are in [Native port integration gates](NATIVE_PORT_GATES_2026-11-22.md). These are desktop fixture proofs, not an Xbox game boot, real input latency, official upscaler integration or hardware GPU proof.
 
 

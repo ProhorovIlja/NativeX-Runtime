@@ -536,3 +536,13 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_pe_tls_callbacks_thread_lifecycle
     PROPERTIES TIMEOUT 25)
 endif()
+
+# Cross-check PE metadata parser against the ACTUAL same source-built MSVC DLL
+# whose Windows LoadLibrary TLS/thread lifecycle is separately executed above.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_test(NAME native_win_compiled_pe_tls_pdata_intake
+    COMMAND "${Python3_EXECUTABLE}"
+      "${CMAKE_SOURCE_DIR}/tests/check_compiled_pe_tls.py"
+      "$<TARGET_FILE:pe_intake>" "$<TARGET_FILE:scarlett_native_tls_fixture>")
+  set_tests_properties(native_win_compiled_pe_tls_pdata_intake PROPERTIES TIMEOUT 25)
+endif()

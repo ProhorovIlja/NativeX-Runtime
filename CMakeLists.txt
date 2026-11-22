@@ -308,3 +308,17 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_d3d12_dxgi_window_present
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
 endif()
+
+# Native D3D12 reserved buffer mapped in real 64 KiB tiles, software WARP.
+# Not Xbox guest UMA translation; capabilities may skip on headless runners.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(d3d12_warp_tiled64k fixtures/d3d12_warp_tiled64k.cpp)
+  target_compile_features(d3d12_warp_tiled64k PRIVATE cxx_std_17)
+  target_link_libraries(d3d12_warp_tiled64k PRIVATE d3d12 dxgi)
+  if(MSVC)
+    target_compile_options(d3d12_warp_tiled64k PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME d3d12_warp_tiled64k_exact_readback COMMAND d3d12_warp_tiled64k)
+  set_tests_properties(d3d12_warp_tiled64k_exact_readback
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
+endif()

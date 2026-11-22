@@ -518,3 +518,21 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND native_win_dynamic_unwind)
   set_tests_properties(native_win_seh_registered_x64_unwind PROPERTIES TIMEOUT 20)
 endif()
+
+# Real source-built Win64 LoadLibrary PE TLS callback/thread attach/detach.
+# CRT-owned fixture DLL and explicit host OS loader, not console GDK/AnyXboxX.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_library(scarlett_native_tls_fixture SHARED fixtures/native_win_tls_module.cpp)
+  target_compile_features(scarlett_native_tls_fixture PRIVATE cxx_std_17)
+  add_executable(native_win_tls_loader fixtures/native_win_tls_loader.cpp)
+  target_compile_features(native_win_tls_loader PRIVATE cxx_std_17)
+  foreach(target scarlett_native_tls_fixture native_win_tls_loader)
+    if(MSVC)
+      target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+    endif()
+  endforeach()
+  add_test(NAME native_win_pe_tls_callbacks_thread_lifecycle
+    COMMAND native_win_tls_loader "$<TARGET_FILE:scarlett_native_tls_fixture>")
+  set_tests_properties(native_win_pe_tls_callbacks_thread_lifecycle
+    PROPERTIES TIMEOUT 25)
+endif()

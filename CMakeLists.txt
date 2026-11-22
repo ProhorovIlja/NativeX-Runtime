@@ -470,3 +470,23 @@ endforeach()
 add_test(NAME native_pc_bc1_bc3_rectangular_raster_decode
   COMMAND native_bc_texture_tests)
 set_tests_properties(native_pc_bc1_bc3_rectangular_raster_decode PROPERTIES TIMEOUT 25)
+
+# Original Win32 D3D12 WARP compressed BC1/BC3 real texture/SRV shader Load
+# and exact 16x16 RGBA readback versus our source-tested native CPU decoder.
+# Not Xbox texture swizzle or real AMD/NVIDIA/Intel GPU acceptance.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(d3d12_warp_bc_texture fixtures/d3d12_warp_bc_texture.cpp)
+  target_compile_features(d3d12_warp_bc_texture PRIVATE cxx_std_17)
+  target_link_libraries(d3d12_warp_bc_texture PRIVATE
+    native_bc_texture d3d12 dxgi d3dcompiler)
+  if(MSVC)
+    target_compile_options(d3d12_warp_bc_texture PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_d3d12_bc1_gpu_cpu_differential
+    COMMAND d3d12_warp_bc_texture bc1)
+  add_test(NAME native_win_d3d12_bc3_gpu_cpu_differential
+    COMMAND d3d12_warp_bc_texture bc3)
+  set_tests_properties(native_win_d3d12_bc1_gpu_cpu_differential
+    native_win_d3d12_bc3_gpu_cpu_differential
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 35)
+endif()

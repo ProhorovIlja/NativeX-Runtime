@@ -132,13 +132,13 @@ void malformed_inputs_never_write(){
     bad=good;bad.block_pitch=15;
     expect(bad,dest,Format::Bc1,Status::InvalidStride);
     expect(good,{output.data(),output.size(),19},Format::Bc1,Status::InvalidStride);
-    bad=good;bad.block_bytes=23;
+    bad=good;bad.block_bytes=15;
     expect(bad,dest,Format::Bc1,Status::BufferTooShort);
     expect(good,{output.data(),59,20},Format::Bc1,Status::BufferTooShort);
     expect(good,dest,static_cast<Format>(99),Status::UnsupportedFormat);
     bad=good;bad.block_pitch=std::numeric_limits<std::size_t>::max();
     expect(bad,dest,Format::Bc1,Status::InvalidStride);
-    bad=good;bad.block_pitch=32;
+    bad=good;bad.block_pitch=32;bad.block_bytes=31;
     expect(bad,dest,Format::Bc3,Status::BufferTooShort);
 }
 }

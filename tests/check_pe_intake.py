@@ -22,6 +22,8 @@ def fixture(path):
     struct.pack_into('<II',data,opt+120,0x1000,40)
     # A separate export table (3 names and ordinals 5, 6, 7).
     struct.pack_into('<II',data,opt+112,0x1140,0xC0)
+    # Two sorted synthetic AMD64 .pdata RUNTIME_FUNCTION entries, metadata only.
+    struct.pack_into('<II',data,opt+112+3*8,0x1320,24)
     # Relocations, TLS and delay imports are all synthesized, never copied.
     struct.pack_into('<II',data,opt+112+5*8,0x1080,8)
     struct.pack_into('<II',data,opt+112+9*8,0x1090,40)
@@ -55,6 +57,11 @@ def fixture(path):
     struct.pack_into('<QQ',data,0x4A0,0x12C0,0)
     struct.pack_into('<H',data,0x4C0,3)
     data[0x4C2:0x4C2+len(b'MessageBoxW\x00')]=b'MessageBoxW\x00'
+    # The .pdata body is at raw 0x520 (RVA 0x1320). The referenced unwind
+    # offsets are intentionally NOT decoded, loaded or interpreted.
+    struct.pack_into('<IIIIII',data,0x520,
+                     0x1000,0x1020,0x1350,
+                     0x1020,0x1040,0x1360)
     path.write_bytes(data)
 
 def main(exe):
@@ -73,6 +80,11 @@ def main(exe):
         assert info['delay_import_symbols']==[
             {'module':'USER32.dll','name':'MessageBoxW','ordinal':None}
         ],info
+        assert info['runtime_functions']==[
+            {'begin_rva':0x1000,'end_rva':0x1020,'unwind_rva':0x1350},
+            {'begin_rva':0x1020,'end_rva':0x1040,'unwind_rva':0x1360}
+        ],info
+        assert info['unwind_codes_decoded'] is False,info
         assert info['relocation_blocks']==1,info
         assert info['has_tls_directory'] is True,info
         assert info['exports']==[
@@ -86,7 +98,15 @@ def main(exe):
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr
         # Negative cases: malformed exports and imports must fail without code execution.
-        for raw_offset, bad_value in ((0x280+4, 0xffffffff),
+        for raw_offset, bad_value in ((0x98+112+3*8+4, 13), # invalid pdata extent
+                                      (0x98+112+3*8, 0xfffffffe), # invalid pdata RVA
+                                      (0x520, 0x1020), # empty function body
+                                      (0x520+4, 0x1000), # begin >= end
+                                      (0x520+8, 0x1351), # unaligned unwind RVA
+                                      (0x520+8, 0xffffffff), # out-of-image unwind
+                                      (0x520+12, 0x1010), # overlapping function
+                                      (0x520+16, 0xffffffff), # out-of-image function
+                                      (0x280+4, 0xffffffff),
                                       (0x450, 0xfffffffe), # invalid import name RVA
                                       (0x450+4, 0x00000001), # invalid 64-bit name high word
                                       (0x458+4, 0xc0000000), # ordinal has forbidden flag bits
@@ -103,5 +123,5 @@ def main(exe):
             bad.write_bytes(corrupted)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
-    print("synthetic PE32+ named/ordinal imports, delayed thunks, exports, TLS, relocations and corruption: PASS")
+    print("synthetic PE32+ imports, exports, sorted AMD64 pdata, TLS, relocations and malformed directories: PASS")
 if __name__=='__main__':main(sys.argv[1])

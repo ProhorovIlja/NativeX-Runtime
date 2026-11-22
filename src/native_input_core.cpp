@@ -126,4 +126,17 @@ bool Router::device_button_down(std::uint64_t id,std::uint8_t button) const {
 Gamepad Router::gamepad_state(std::uint8_t slot) const {
     return slot<pads_.size()?pads_[slot]:Gamepad{};
 }
+FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
+    FrameSnapshot result{};
+    result.captured_ticks=receipt_ticks;
+    result.focused=focused_;
+    result.dropped_events=dropped_;
+    result.pads=pads_;
+    for(const auto& d:devices_) {
+        if(!d.active)continue;
+        result.keys|=d.keys;
+        result.mouse_buttons|=d.buttons;
+    }
+    return result;
+}
 } // namespace scarlett::input

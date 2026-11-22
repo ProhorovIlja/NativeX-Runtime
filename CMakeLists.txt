@@ -391,3 +391,19 @@ foreach(target native_action_bindings native_action_bindings_tests)
 endforeach()
 add_test(NAME native_pc_input_action_remap_profile COMMAND native_action_bindings_tests)
 set_tests_properties(native_pc_input_action_remap_profile PROPERTIES TIMEOUT 25)
+
+# Native Win32 D3D12 WARP 12-frame flip-chain and ResizeBuffers acceptance.
+# Real DXGI Present + fence + one-frame pacing, no human-visible GPU claim.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_dxgi_multiframe fixtures/native_win_dxgi_multiframe.cpp)
+  target_compile_features(native_win_dxgi_multiframe PRIVATE cxx_std_17)
+  target_link_libraries(native_win_dxgi_multiframe PRIVATE
+    native_frame_timeline d3d12 dxgi user32)
+  if(MSVC)
+    target_compile_options(native_win_dxgi_multiframe PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_dxgi_multiframe_resize_warp
+    COMMAND native_win_dxgi_multiframe)
+  set_tests_properties(native_win_dxgi_multiframe_resize_warp
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
+endif()

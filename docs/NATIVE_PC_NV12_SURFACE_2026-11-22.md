@@ -1,0 +1,13 @@
+# Native Windows/Linux NV12 4:2:0 surface conversion to BGRA8
+
+Source-built independent portable C++17 files `src/native_nv12_bgra.{hpp,cpp}` plus `fixtures/native_nv12_bgra_tests.cpp` (2026-11-22). This is an original **CPU software fallback surface converter**, **not** a hardware video decoder, Media Foundation pipeline, DXVA decoder, H.264/HEVC/AV1 bitstream implementation or GTA VI cutscene playback.
+
+It accepts external **NV12 planar luma + interleaved chroma (UV)** buffers, dimensions up to 8192×8192, explicit byte lengths and separate row pitches (including padded rows and odd width/height). It computes 4:2:0 nearest-chroma addressing with `ceil(width/2)×2` chroma bytes per row and `ceil(height/2)` chroma rows and writes **BGRA8** in a caller-owned buffer with independent output pitch. It implements the studio/limited range fixed-point approximations of **BT.601 and BT.709** matrices; output is byte-clamped to 0–255 and alpha is opaque. No buffers are dynamically allocated by the converter.
+
+**Validation precedes all writes:** null pointers, zero/oversize dimensions, invalid plane or output row pitches, address-size arithmetic overflow, insufficient luma/UV/output bytes and unknown color matrix are rejected without modifying the output. The caller must guarantee that input/output memory spans do not overlap and stay valid for the synchronous conversion. The model deliberately does not autodetect color range, chroma siting, HDR transfer function, mastering metadata, pixel aspect ratio or frame rate.
+
+Independent Linux/Windows CTest verifies exact BT.601 red and green pixel vectors (including integer clamping), BT.709 chroma differences, a 5×3 image with padded 8-byte Y/UV rows and 28-byte output rows, all alpha values and no overwrite of row padding, 1×1 input with two chroma bytes, truncated UV/Y/output rejection, arithmetic overflow, and unchanged canaries on every bad input.
+
+**Use boundary:** a future Windows Video Foundation/DXVA, D3D12 video or Linux FFmpeg/GStreamer pipeline may decode compressed frames to NV12/P010 surfaces. Such decoder output can be fed through this converter **only after the real pixel format, matrix and memory mapping are validated**. For performance, GPU-native processing may be preferable to copying decoded images to CPU; benchmark memory bandwidth and output quality on actual target hardware before choosing this fallback. This code is not a standalone video player, UI compositor or media synchronization engine.
+
+No proprietary game/cutscene assets, external multimedia libraries, scheduled background jobs or driver installs are required for this test.

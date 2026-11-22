@@ -307,6 +307,10 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_test(NAME native_win_d3d12_dxgi_window_present COMMAND native_win_dxgi_present)
   set_tests_properties(native_win_d3d12_dxgi_window_present
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+  add_test(NAME native_win_dxgi_one_frame_latency_waitable
+    COMMAND native_win_dxgi_present --frame-latency-one)
+  set_tests_properties(native_win_dxgi_one_frame_latency_waitable
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
 endif()
 
 # Native D3D12 reserved buffer mapped in real 64 KiB tiles, software WARP.

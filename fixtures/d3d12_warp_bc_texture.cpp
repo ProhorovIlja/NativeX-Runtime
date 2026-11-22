@@ -427,7 +427,7 @@ int run(Format kind){
 }
 }
 int main(int argc,char** argv){
-    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3|bc4|bc5\\n";return 2;}
+    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3|bc4|bc5\n";return 2;}
     try{
         if(std::strcmp(argv[1],"bc1")==0)return run(Format::Bc1);
         if(std::strcmp(argv[1],"bc3")==0)return run(Format::Bc3);
@@ -435,7 +435,7 @@ int main(int argc,char** argv){
         if(std::strcmp(argv[1],"bc5")==0)return run(Format::Bc5);
         return 2;
     }catch(const std::exception& e){
-        std::cerr<<"D3D12 BC texture fixture exception: "<<e.what()<<'\\n';
+        std::cerr<<"D3D12 BC texture fixture exception: "<<e.what()<<'\n';
         return 1;
     }
 }

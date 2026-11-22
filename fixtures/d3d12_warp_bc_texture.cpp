@@ -1,4 +1,4 @@
-// Original Windows x64 BC1/BC3 hardware-format GPU decoding versus native CPU oracle.
+// Original Windows x64 BC1/BC3/BC4/BC5 hardware-format GPU decoding versus native CPU oracle.
 // D3D12 WARP DirectX texture upload + shader Load + 256-pixel readback,
 // not Xbox GDK/D3D12.X shader or physical GPU verification.
 #define WIN32_LEAN_AND_MEAN
@@ -16,6 +16,7 @@
 #include <iostream>
 #include <stdexcept>
 using Microsoft::WRL::ComPtr;
+using scarlett::texture::Format;
 namespace {
 constexpr UINT SourceWidth=4, SourceHeight=4, TargetWidth=16,TargetHeight=16;
 constexpr UINT SampleScale=4;
@@ -80,29 +81,48 @@ struct Bytes {
     std::array<std::uint8_t,64> expected{};
     std::size_t block_bytes=0;
 };
-Bytes make_block(bool bc3){
-    Bytes b{};b.block_bytes=bc3?16u:8u;
-    std::uint8_t* colors=b.compressed.data()+(bc3?8u:0u);
-    if(bc3){
-        // BC3 has 8/6 alpha indices and always four RGB palette entries.
+Bytes make_block(Format kind){
+    Bytes b{};
+    const bool bc3=kind==Format::Bc3;
+    const bool bc4=kind==Format::Bc4;
+    const bool bc5=kind==Format::Bc5;
+    b.block_bytes=(bc3 || bc5)?16u:8u;
+    if(bc4 || bc5){
+        // Independent BC4 UNORM blocks with nontrivial 3-bit selectors.
+        // R uses 8-interpolated mode, G uses 6-interpolated mode.
         b.compressed[0]=255u;b.compressed[1]=0u;
-        std::uint64_t alpha_bits=0;
-        constexpr unsigned choices[4]={0,1,2,7};
+        if(bc5){b.compressed[8]=0u;b.compressed[9]=255u;}
+        std::uint64_t selector_bits=0;
+        constexpr unsigned selections[4]={0u,1u,2u,7u};
         for(unsigned i=0;i<16;i++)
-            alpha_bits|=static_cast<std::uint64_t>(choices[i%4u])<<(3u*i);
-        for(unsigned i=0;i<6;i++)
-            b.compressed[i+2u]=static_cast<std::uint8_t>(alpha_bits>>(8u*i));
-        put16(colors,0u);put16(colors+2u,0xffffu);
+            selector_bits|=static_cast<std::uint64_t>(selections[i%4u])<<(3u*i);
+        for(unsigned i=0;i<6;i++){
+            b.compressed[2u+i]=static_cast<std::uint8_t>(selector_bits>>(8u*i));
+            if(bc5)
+                b.compressed[10u+i]=static_cast<std::uint8_t>(selector_bits>>(8u*i));
+        }
     }else{
-        put16(colors,0xf800u);put16(colors+2u,0x001fu);
+        std::uint8_t* colors=b.compressed.data()+(bc3?8u:0u);
+        if(bc3){
+            // BC3 has 8/6 alpha indices and always four RGB palette entries.
+            b.compressed[0]=255u;b.compressed[1]=0u;
+            std::uint64_t alpha_bits=0;
+            constexpr unsigned choices[4]={0,1,2,7};
+            for(unsigned i=0;i<16;i++)
+                alpha_bits|=static_cast<std::uint64_t>(choices[i%4u])<<(3u*i);
+            for(unsigned i=0;i<6;i++)
+                b.compressed[i+2u]=static_cast<std::uint8_t>(alpha_bits>>(8u*i));
+            put16(colors,0u);put16(colors+2u,0xffffu);
+        }else{
+            put16(colors,0xf800u);put16(colors+2u,0x001fu);
+        }
+        put32(colors+4u,0xe4e4e4e4u);
     }
-    put32(colors+4u,0xe4e4e4e4u); // all four 2-bit palette indices per row
-    const auto fmt=bc3?scarlett::texture::Format::Bc3:scarlett::texture::Format::Bc1;
     const scarlett::texture::Surface src{b.compressed.data(),b.block_bytes,
                                          b.block_bytes,SourceWidth,SourceHeight};
     const scarlett::texture::Output dst{b.expected.data(),b.expected.size(),
                                         SourceWidth*4u};
-    if(scarlett::texture::decode(src,dst,fmt)!=scarlett::texture::Status::Ok)
+    if(scarlett::texture::decode(src,dst,kind)!=scarlett::texture::Status::Ok)
         throw std::runtime_error("independent CPU BC decoder rejected original block");
     return b;
 }
@@ -110,9 +130,16 @@ bool close_channel(std::uint8_t a,std::uint8_t b){
     const unsigned x=a,y=b;
     return x+2u>=y&&x<=y+2u;
 }
-int run(bool bc3){
-    Bytes original=make_block(bc3);
-    const auto format=bc3?DXGI_FORMAT_BC3_UNORM:DXGI_FORMAT_BC1_UNORM;
+int run(Format kind){
+    Bytes original=make_block(kind);
+    DXGI_FORMAT format=DXGI_FORMAT_UNKNOWN;
+    switch(kind){
+        case Format::Bc1:format=DXGI_FORMAT_BC1_UNORM;break;
+        case Format::Bc3:format=DXGI_FORMAT_BC3_UNORM;break;
+        case Format::Bc4:format=DXGI_FORMAT_BC4_UNORM;break;
+        case Format::Bc5:format=DXGI_FORMAT_BC5_UNORM;break;
+    }
+    if(format==DXGI_FORMAT_UNKNOWN)return 2;
     HRESULT hr=S_OK;
     ComPtr<IDXGIFactory4> factory;
     hr=CreateDXGIFactory2(0,IID_PPV_ARGS(&factory));
@@ -386,7 +413,7 @@ int run(bool bc3){
         return 1;
     }
     std::cout<<"{\"kind\":\"native-warp-gpu-bc-format-versus-cpu\","
-             "\"format\":\""<<(bc3?"BC3":"BC1")<<"\","
+             "\"format\":\""<<(kind==Format::Bc1?"BC1":kind==Format::Bc3?"BC3":kind==Format::Bc4?"BC4":"BC5")<<"\","
              "\"texture_upload_and_srv\":true,"
              "\"shader_load_and_draw\":true,"
              "\"pixels_verified\":"<<pixels<<","
@@ -400,10 +427,12 @@ int run(bool bc3){
 }
 }
 int main(int argc,char** argv){
-    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3\n";return 2;}
+    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3|bc4|bc5\n";return 2;}
     try{
-        if(std::strcmp(argv[1],"bc1")==0)return run(false);
-        if(std::strcmp(argv[1],"bc3")==0)return run(true);
+        if(std::strcmp(argv[1],"bc1")==0)return run(Format::Bc1);
+        if(std::strcmp(argv[1],"bc3")==0)return run(Format::Bc3);
+        if(std::strcmp(argv[1],"bc4")==0)return run(Format::Bc4);
+        if(std::strcmp(argv[1],"bc5")==0)return run(Format::Bc5);
         return 2;
     }catch(const std::exception& e){
         std::cerr<<"D3D12 BC texture fixture exception: "<<e.what()<<'\n';

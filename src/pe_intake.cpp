@@ -21,6 +21,14 @@ class PE {
   std::vector<ImportSymbol> import_symbols, delay_import_symbols;
   struct RuntimeFunction { uint32_t begin, end, unwind; };
   std::vector<RuntimeFunction> runtime_functions;
+  struct UnwindSummary {
+    uint32_t rva;
+    unsigned version, flags, prolog, slots;
+    uint64_t stack_bytes;
+    bool decoded, chain;
+    uint32_t handler;
+  };
+  std::vector<UnwindSummary> unwind_summaries;
   uint32_t relocation_blocks=0;
   bool has_tls_directory=false;
   std::vector<uint32_t> tls_callbacks;
@@ -84,6 +92,85 @@ class PE {
       }
     }
     throw std::runtime_error("unterminated PE import thunk table");
+  }
+
+  // Read-only AMD64 UNWIND_INFO header and version-1 basic op slots.
+  // Do not interpret handlers, execute exceptions, or register function tables.
+  // Version-2/3 formats are explicitly kept opaque rather than misdecoded.
+  UnwindSummary inspect_unwind(const RuntimeFunction& fn,uint32_t image_size) const {
+    const std::size_t first=rva(fn.unwind,4);
+    const unsigned version=b[first]&7u;
+    const unsigned flags=b[first]>>3u;
+    const unsigned prolog=b[first+1u];
+    const unsigned slots=b[first+2u];
+    if(version==0u)throw std::runtime_error("invalid AMD64 UNWIND_INFO version zero");
+    UnwindSummary info{fn.unwind,version,flags,prolog,slots,0,false,false,0};
+    if(version!=1u)return info; // newer version-specific formats stay opaque
+    if(flags>7u || ((flags&4u)!=0 && (flags&3u)!=0))
+      throw std::runtime_error("invalid AMD64 UNWIND_INFO flags");
+    info.chain=(flags&4u)!=0u;
+    const std::size_t aligned_slots=(slots+1u)&~std::size_t(1);
+    const std::size_t suffix=info.chain?12u:((flags&3u)?4u:0u);
+    const std::size_t full=4u+aligned_slots*2u+suffix;
+    const std::size_t start=rva(fn.unwind,full);
+    std::size_t index=0;
+    while(index<slots){
+      const std::size_t code_slot=start+4u+index*2u;
+      const unsigned instruction_offset=b[code_slot];
+      const unsigned opcode=b[code_slot+1u]&15u;
+      const unsigned operand=b[code_slot+1u]>>4u;
+      if(instruction_offset>prolog)
+        throw std::runtime_error("AMD64 unwind operation beyond function prolog");
+      unsigned extra=0;
+      uint64_t allocation=0;
+      switch(opcode){
+        case 0u: allocation=8u;break; // PUSH_NONVOL
+        case 1u: // ALLOC_LARGE
+          if(operand==0u){extra=1u;}
+          else if(operand==1u){extra=2u;}
+          else throw std::runtime_error("unsupported large unwind allocation mode");
+          break;
+        case 2u: allocation=8u*(operand+1u);break; // ALLOC_SMALL
+        case 3u:
+          if(operand!=0u || (b[first+3u]&15u)==0u)
+            throw std::runtime_error("invalid frame-register unwind op");
+          break;
+        case 4u: extra=1u;break; // SAVE_NONVOL
+        case 5u: extra=2u;break; // SAVE_NONVOL_FAR
+        case 8u: extra=1u;break; // SAVE_XMM128
+        case 9u: extra=2u;break; // SAVE_XMM128_FAR
+        case 10u:
+          if(operand>1u)throw std::runtime_error("invalid machine-frame unwind mode");
+          allocation=operand?48u:40u;break;
+        default:
+          throw std::runtime_error("unknown AMD64 version-one unwind opcode");
+      }
+      if(index+extra>=slots)
+        throw std::runtime_error("truncated variable-length unwind operation");
+      if(opcode==1u){
+        const std::size_t extension=code_slot+2u;
+        allocation=operand==0u
+          ?uint64_t(u16(extension))*8u
+          :uint64_t(u32(extension));
+      }
+      info.stack_bytes+=allocation;
+      index+=1u+extra;
+    }
+    if(suffix){
+      const std::size_t where=start+4u+aligned_slots*2u;
+      if(info.chain){
+        const uint32_t begin=u32(where),end=u32(where+4u),unwind=u32(where+8u);
+        if(begin>=end||end>image_size||!unwind||unwind>=image_size||
+           (unwind&3u))
+          throw std::runtime_error("invalid chained AMD64 runtime function");
+      }else{
+        info.handler=u32(where);
+        if(!info.handler||info.handler>=image_size)
+          throw std::runtime_error("invalid AMD64 unwind handler RVA");
+      }
+    }
+    info.decoded=true;
+    return info;
   }
   static std::string quote(const std::string& s){
     std::ostringstream out;out<<'"';
@@ -191,6 +278,8 @@ public:
           throw std::runtime_error("invalid AMD64 runtime function range");
         runtime_functions.push_back({begin,end,unwind});
       }
+      for(const auto& fn:runtime_functions)
+        unwind_summaries.push_back(inspect_unwind(fn,image_size));
     }
     const auto reloc=dir(5);
     if(reloc.first && reloc.second){
@@ -317,7 +406,22 @@ public:
       out<<"{\"begin_rva\":"<<fn.begin<<",\"end_rva\":"<<fn.end
          <<",\"unwind_rva\":"<<fn.unwind<<"}";
     }
-    out<<"],\"unwind_codes_decoded\":false";
+    out<<"],\"unwind_infos\":[";
+    for(size_t i=0;i<unwind_summaries.size();i++){
+      if(i)out<<",";
+      const auto& x=unwind_summaries[i];
+      out<<"{\"unwind_rva\":"<<x.rva<<",\"version\":"<<x.version
+         <<",\"flags\":"<<x.flags<<",\"prolog_bytes\":"<<x.prolog
+         <<",\"code_slots\":"<<x.slots
+         <<",\"decoded_v1_basic_operations\":"<<(x.decoded?"true":"false")
+         <<",\"stack_allocation_bytes\":";
+      if(x.decoded)out<<x.stack_bytes;else out<<"null";
+      out<<",\"chained\":"<<(x.chain?"true":"false")<<",\"handler_rva\":";
+      if(x.handler)out<<x.handler;else out<<"null";
+      out<<"}";
+    }
+    out<<"],\"unwind_codes_executed\":false";
+    out<<",\"unwind_codes_decoded\":false";
     out<<",\"tls_template_rva\":";
     if(tls_template_rva)out<<tls_template_rva;else out<<"null";
     out<<",\"tls_template_bytes\":"<<tls_template_bytes;

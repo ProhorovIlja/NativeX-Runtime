@@ -75,6 +75,11 @@ SlotRead read_slot(const std::filesystem::path& file) {
     const bool exists=std::filesystem::exists(file,ec);
     if(ec)return {Status::IoError,{}};
     if(!exists)return {Status::NotFound,{}};
+    // Windows/MSVC file_size(directory) can report a small length rather
+    // than consistently producing an error. A committed slot must be a
+    // regular file, never a directory, device or other special object.
+    const bool regular=std::filesystem::is_regular_file(file,ec);
+    if(ec || !regular)return {Status::IoError,{}};
     const auto len=std::filesystem::file_size(file,ec);
     if(ec)return {Status::IoError,{}};
     if(len<HeaderSize || len>HeaderSize+MaxPayloadBytes)return {Status::Corrupt,{}};

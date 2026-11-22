@@ -27,3 +27,12 @@ if(MSVC)
   target_compile_options(scarlett_pe_d3d12 PRIVATE /W4 /WX /GS-)
   target_link_options(scarlett_pe_d3d12 PRIVATE /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
 endif()
+
+# Fifth original CRT-free PE32+ program: Win32 HWND + WARP DXGI swapchain Present.
+add_executable(scarlett_pe_dxgi_present present_probe.c)
+target_link_libraries(scarlett_pe_dxgi_present PRIVATE kernel32 user32 dxgi d3d12 dxguid)
+if(MSVC)
+  target_compile_options(scarlett_pe_dxgi_present PRIVATE /W4 /WX /GS-)
+  target_link_options(scarlett_pe_dxgi_present PRIVATE
+    /ENTRY:ProbeEntry /SUBSYSTEM:CONSOLE /NODEFAULTLIB /INCREMENTAL:NO /DYNAMICBASE)
+endif()

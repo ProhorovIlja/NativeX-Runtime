@@ -60,7 +60,8 @@ if ($RunSynthetic) {
         @{ Name = "scarlett_pe_baseline"; Expected = 42 },
         @{ Name = "scarlett_pe_imports"; Expected = 43 },
         @{ Name = "scarlett_pe_gdk_shim"; Expected = 44 },
-        @{ Name = "scarlett_pe_d3d12"; Expected = 45 }
+        @{ Name = "scarlett_pe_d3d12"; Expected = 45 },
+        @{ Name = "scarlett_pe_dxgi_present"; Expected = 46 }
     )) {
         $name = [string]$case.Name
         $fixture = Join-Path $fixtureBuild ("Release/" + $name + ".exe")

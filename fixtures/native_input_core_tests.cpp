@@ -143,6 +143,49 @@ void saturated_queue_disconnect_is_observable() {
           next(r).type==Type::DeviceDisconnected,
           "unplug with full queue did not force observable state reset");
 }
+void immutable_frame_state_snapshots() {
+    Router r;
+    Gamepad pad{};pad.connected=true;pad.left_x=2468;pad.buttons=0x1000;
+    r.key(10,0x1d,false,false,true,1);
+    r.key(20,0x1d,false,false,true,2);
+    r.mouse_button(30,0,true,3);
+    r.gamepad(0,pad,4);
+    const std::size_t queued_before=r.queued();
+    const auto first=r.snapshot(50);
+    check(first.captured_ticks==50 && first.focused && first.key_down(0x1d) &&
+          first.button_down(0) && first.pads[0].left_x==2468 &&
+          first.pads[0].connected && first.pads[0].buttons==0x1000,
+          "immutable frame snapshot omitted aggregated input");
+    check(first.dropped_events==0 && r.queued()==queued_before,
+          "snapshot must never consume queued Raw Input events");
+    r.key(10,0x1d,false,false,false,5);
+    check(r.snapshot(51).key_down(0x1d),
+          "first keyboard release incorrectly clears other keyboard");
+    r.raw_device_removed(20,6);
+    r.mouse_button(30,0,false,7);
+    r.gamepad(0,Gamepad{},8);
+    const auto second=r.snapshot(52);
+    check(!second.key_down(0x1d) && !second.button_down(0) &&
+          !second.pads[0].connected && second.captured_ticks==52,
+          "post-disconnect frame snapshot retained released state");
+    check(first.key_down(0x1d) && first.button_down(0) &&
+          first.pads[0].connected,"earlier captured snapshot mutated");
+}
+void snapshot_focus_and_queue_overflow() {
+    Router r;
+    r.key(100,0x21,false,false,true,1);
+    for(std::size_t i=0;i<Router::QueueLimit+5u;i++)
+        r.mouse_move(100,1,1,false,static_cast<std::uint64_t>(2+i));
+    const auto before=r.snapshot(2000);
+    check(before.key_down(0x21) && before.dropped_events==6 &&
+          before.focused,"snapshot did not preserve overflow accounting");
+    r.set_focus(false,2001);
+    const auto after=r.snapshot(2002);
+    check(!after.focused && !after.key_down(0x21) &&
+          !after.button_down(0),"snapshot did not reflect focus-reset state");
+    check(before.key_down(0x21) && before.focused,
+          "first snapshot was not independent of Router backing storage");
+}
 void queue_overflow_and_reset() {
     Router r;
     for(std::size_t i=0;i<Router::QueueLimit+10u;i++)
@@ -161,11 +204,13 @@ int main() {
         multiple_physical_keyboards_and_mice();
         physical_device_capacity_and_reuse();
         saturated_queue_disconnect_is_observable();
+        immutable_frame_state_snapshots();
+        snapshot_focus_and_queue_overflow();
     }catch(const std::exception& ex) {
         std::cerr<<"native input deterministic tests FAILED: "<<ex.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-input-state-machine\","
-             "\"scenarios\":9,\"raw_devices_required\":false,"
+             "\"scenarios\":11,\"raw_devices_required\":false,"
              "\"focus_cleanup\":true,\"no_emulated_controller\":true,"
              "\"hardware_tested\":false}\n";
     return 0;

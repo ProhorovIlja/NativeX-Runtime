@@ -1,8 +1,8 @@
 # Original native Windows PE32+ execution probes
 
-Two source-built x64 executables, linked without the C runtime, exercise a separately built native AnyXboxX loader. The baseline returns **42** from its entry point; the import probe returns **43** if Win32 GetCurrentProcessId succeeds and GetModuleHandleW(NULL) points to a valid mapped MZ image. Their exact exit codes are checked with a per-child 10-second watchdog.
+Five original source-built x64 executables, linked without the C runtime, exercise a separately built native AnyXboxX loader. The first two verify elementary entry and Win32 imports, while later probes cover limited GDK-compatible calls, desktop D3D12 WARP, and DXGI Present. The baseline returns **42** from its entry point; the import probe returns **43** if Win32 GetCurrentProcessId succeeds and GetModuleHandleW(NULL) points to a valid mapped MZ image. Their exact exit codes are checked with a per-child 10-second watchdog.
 
-The inputs contain only our original source and publicly documented Win32 functions. No game, GDK, Xbox shader, console library, or third-party executable is distributed in this repository. The external AnyXboxX source remains separately licensed (LGPL-2.1-or-later) and is built at a pinned commit on ephemeral CI.
+The inputs contain only our original source and publicly documented Win32 functions. No game, GDK, Xbox shader, console library, or third-party executable is distributed in this repository. The current pinned external AnyXboxX revision is **GPL-3.0-or-later** (its earlier history was LGPL-2.1-or-later). It is built from its own public source at a fixed commit in ephemeral CI; no GPL source or binary is distributed in this MIT repository.
 
 A passing test proves small desktop PE32+ execution through a native loader and Win32 import binding. It does not establish console PE/ABI compatibility, D3D12.X, RDNA2, GDK samples or GTA VI boot.
 

@@ -248,7 +248,7 @@ int main(){
         return 1;
     }
     std::cout<<"{\"kind\":\"native-bc1-bc3-bc4-bc5-rectangular-texel-raster\","
-             "\"scenarios\":5,"
+             "\"scenarios\":8,"
              "\"rgb565_4color_and_cutout_verified\":true,"
              "\"bc3_alpha_8_and_6_mode_verified\":true,"
              "\"non_power_of_two_raster_verified\":true,"

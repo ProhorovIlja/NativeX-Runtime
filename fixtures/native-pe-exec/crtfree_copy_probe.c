@@ -6,7 +6,7 @@
 #ifdef _MSC_VER
 #pragma intrinsic(__movsb)
 #endif
-enum { CopyBytes=8192 };
+#define CopyBytes 8192u
 static unsigned char source_page[CopyBytes]; // .bss
 static unsigned char target_page[CopyBytes]; // .bss
 static const unsigned char seed[16] = {

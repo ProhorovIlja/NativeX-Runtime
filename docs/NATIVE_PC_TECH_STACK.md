@@ -1,5 +1,8 @@
 # Windows-first native PC technology architecture (November 22, 2026)
 
+**Latest executed platform gates:** [cross-process CPU mapping](NATIVE_CPU_CROSSPROCESS_64K_2026-11-22.md), [12-frame live-resizable DXGI Present](NATIVE_WIN_DXGI_MULTIFRAME_2026-11-22.md), [native localhost-only TCP between child processes](NATIVE_PC_TCP_LOOPBACK_2026-11-22.md) and [strict native NV12 4:2:0→BGRA8](NATIVE_PC_NV12_SURFACE_2026-11-22.md) passed Windows and Linux source-build CI in PRs #65–#68. These cover distinct OS primitives; they are not a finished host game runtime or measured performance improvement. [Updated Xbox/PC upstream audit, license gates, and next hardware/title milestones](NATIVE_PLATFORM_UPSTREAM_AUDIT_2026-11-22.md).
+
+
 **Scope.** Native Xbox Series x86-64 research plus a future Windows PC renderer, a later native Linux build, and opt-in graphics/performance improvements. No actual GTA VI Xbox EXE/assets or console-only D3D12.X runtime are in this project. A source-built Windows PE loader already executed original Win32/GDK-shim/D3D12-WARP fixtures; it has NOT executed an Xbox game.
 
 

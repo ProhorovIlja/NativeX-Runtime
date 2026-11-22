@@ -566,3 +566,20 @@ endforeach()
 add_test(NAME native_pc_gamepad_radial_analog_response
   COMMAND native_gamepad_analog_tests)
 set_tests_properties(native_pc_gamepad_radial_analog_response PROPERTIES TIMEOUT 20)
+
+# Allocation-free absolute-phase PCM stereo sample-rate conversion reference.
+# Not a production-quality polyphase resampler, decoder or audio device.
+add_library(native_audio_resample STATIC src/native_audio_resample.cpp)
+target_include_directories(native_audio_resample PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_audio_resample PUBLIC cxx_std_17)
+add_executable(native_audio_resample_tests fixtures/native_audio_resample_tests.cpp)
+target_link_libraries(native_audio_resample_tests PRIVATE native_audio_resample)
+foreach(target native_audio_resample native_audio_resample_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_stereo_pcm_rate_conversion COMMAND native_audio_resample_tests)
+set_tests_properties(native_pc_stereo_pcm_rate_conversion PROPERTIES TIMEOUT 15)

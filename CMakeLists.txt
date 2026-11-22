@@ -420,3 +420,19 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_dxgi_multiframe_resize_warp
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
 endif()
+
+# Original no-heap native Windows/Linux NV12 4:2:0 -> BGRA8 CPU fallback.
+# Software surface conversion only; not hardware video bitstream decoding.
+add_library(native_nv12_bgra STATIC src/native_nv12_bgra.cpp)
+target_include_directories(native_nv12_bgra PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_nv12_bgra PUBLIC cxx_std_17)
+add_executable(native_nv12_bgra_tests fixtures/native_nv12_bgra_tests.cpp)
+target_link_libraries(native_nv12_bgra_tests PRIVATE native_nv12_bgra)
+foreach(target native_nv12_bgra native_nv12_bgra_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_nv12_bgra_surface_conversion COMMAND native_nv12_bgra_tests)

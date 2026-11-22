@@ -294,3 +294,17 @@ foreach(target native_save_slots native_save_slots_tests)
 endforeach()
 add_test(NAME native_pc_save_two_slot_corruption_recovery COMMAND native_save_slots_tests)
 set_tests_properties(native_pc_save_two_slot_corruption_recovery PROPERTIES TIMEOUT 25)
+
+# Native Win32 window + DXGI flip-model Present, software WARP only.
+# May SKIP on headless CI, never fake successful presentation.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_dxgi_present fixtures/native_win_dxgi_present.cpp)
+  target_compile_features(native_win_dxgi_present PRIVATE cxx_std_17)
+  target_link_libraries(native_win_dxgi_present PRIVATE d3d12 dxgi user32)
+  if(MSVC)
+    target_compile_options(native_win_dxgi_present PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_d3d12_dxgi_window_present COMMAND native_win_dxgi_present)
+  set_tests_properties(native_win_d3d12_dxgi_window_present
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+endif()

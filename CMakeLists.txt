@@ -470,3 +470,17 @@ endforeach()
 add_test(NAME native_pc_bc1_bc3_rectangular_raster_decode
   COMMAND native_bc_texture_tests)
 set_tests_properties(native_pc_bc1_bc3_rectangular_raster_decode PROPERTIES TIMEOUT 25)
+
+# Real Win32 x64 VirtualAlloc2 placeholder splitting and 64 KiB MapViewOfFile3
+# backing alias, UnmapViewOfFile2 preserve/remap and negative range checks.
+# Native CPU address-space test, NOT Xbox UMA or GPU residency.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_placeholder64 fixtures/native_win_placeholder64.cpp)
+  target_compile_features(native_win_placeholder64 PRIVATE cxx_std_17)
+  if(MSVC)
+    target_compile_options(native_win_placeholder64 PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_real_placeholder64_remap COMMAND native_win_placeholder64)
+  set_tests_properties(native_win_real_placeholder64_remap
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
+endif()

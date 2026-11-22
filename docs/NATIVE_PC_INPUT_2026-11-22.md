@@ -20,6 +20,12 @@ Previously the event router maintained one global keyboard/button bitset. Two ph
 
 The Linux/Windows deterministic suite now exercises two simultaneous keyboards and mice, one-device release without spurious global release, separate disconnect events, 16-slot capacity and recycling, and full-ring disconnect priority. This demonstrates **state machine semantics**, not real multi-device hardware detection, physical DualSense functionality or p99 latency. The device table and queue use fixed memory; on capacity exhaustion a drop counter increases. Mouse movement is still raw relative/absolute events, not emulated joystick axes.
 
+### Immutable simulation-frame input snapshots
+
+`Router::snapshot(receipt_ticks)` now produces a bounded **immutable by-value frame state** after input messages have been processed on the single owner thread. It folds up to 16 separate physical Raw Input keyboard/mouse device bitsets into one 1024-scan-code / five-button aggregate, copies the latest four controller slots, captures focus state, monotonic receipt tick and event drop count. The original event queue is **not consumed or modified** by snapshot reads. Captured snapshots do not change when a second keyboard releases its key, a mouse unplugs, a controller disconnects or the app loses focus. This is a fixed-memory, zero-heap operation; no polling thread, background service, hooks or virtual controller is introduced.
+
+Deterministic Linux and Windows source tests verify simultaneous devices, focus changes, disconnect, snapshot preservation, and a saturated 512-event queue with accurate dropped-event accounting. **No real device, PlayStation haptics, in-game binding engine, physical input latency or GameInput-v4 provider deduplication has been tested from this snapshot alone.** The caller must obtain an OS timestamp consistently and keep snapshot reads on the input owner thread unless synchronized; input-to-Present measurement needs separate verified instrumentation.
+
 ## Selection architecture, no controller emulation
 
 | Device class | Primary Windows candidate | Native fallback | Linux path | Claim boundary |

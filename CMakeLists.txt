@@ -546,3 +546,23 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
       "$<TARGET_FILE:pe_intake>" "$<TARGET_FILE:scarlett_native_tls_fixture>")
   set_tests_properties(native_win_compiled_pe_tls_pdata_intake PROPERTIES TIMEOUT 25)
 endif()
+
+# Original per-frame native GameInput/XInput axis normalization contract.
+# Radial deadzones, outer saturation, cubic curve and inverted axes are
+# pure C++17; no virtual gamepad, GPU, haptic device or added smoothing.
+add_library(native_gamepad_analog STATIC src/native_gamepad_analog.cpp)
+target_include_directories(native_gamepad_analog PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_gamepad_analog PUBLIC cxx_std_17)
+add_executable(native_gamepad_analog_tests fixtures/native_gamepad_analog_tests.cpp)
+target_link_libraries(native_gamepad_analog_tests PRIVATE
+  native_gamepad_analog native_input_core)
+foreach(target native_gamepad_analog native_gamepad_analog_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_gamepad_radial_analog_response
+  COMMAND native_gamepad_analog_tests)
+set_tests_properties(native_pc_gamepad_radial_analog_response PROPERTIES TIMEOUT 20)

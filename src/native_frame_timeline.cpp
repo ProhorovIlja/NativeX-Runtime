@@ -78,6 +78,7 @@ std::uint64_t monotonic_ns() noexcept {
        !QueryPerformanceCounter(&ticks) || ticks.QuadPart<=0)return 0;
     const auto f=static_cast<std::uint64_t>(frequency.QuadPart);
     const auto t=static_cast<std::uint64_t>(ticks.QuadPart);
+    if(f>std::numeric_limits<std::uint64_t>::max()/Billion)return 0;
     const std::uint64_t seconds=t/f;
     if(seconds>std::numeric_limits<std::uint64_t>::max()/Billion)return 0;
     // Divide before multiplying to avoid overflow on hosts with long uptime.

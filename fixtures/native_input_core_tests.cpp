@@ -1,5 +1,6 @@
 #include "native_input_core.hpp"
 #include <cstdint>
+#include <limits>
 #include <iostream>
 #include <stdexcept>
 using namespace scarlett::input;
@@ -195,6 +196,105 @@ void queue_overflow_and_reset() {
     check(r.queued()==1 && next(r).type==Type::FocusLost,
           "focus event lost behind a full queue");
 }
+
+void mouse_frame_relative_absolute_wheel_distinction() {
+    Router r;
+    r.mouse_move(10,12,-9,false,1);
+    r.mouse_move(11,-7,20,false,2);
+    r.mouse_move(11,6000,4000,true,3); // Absolute HID coordinates, not deltas.
+    r.mouse_wheel(10,120,false,4);
+    r.mouse_wheel(11,-40,false,5);
+    r.mouse_wheel(11,15,true,6);
+    const auto frame=r.snapshot(100);
+    check(frame.motion.relative_x==5 && frame.motion.relative_y==11 &&
+          frame.motion.wheel_vertical==80 &&
+          frame.motion.wheel_horizontal==15 &&
+          frame.motion.packets==5 && !frame.motion.saturated,
+          "raw mouse deltas were mixed with absolute coordinates or wheel axes");
+    check(frame.captured_ticks==100 && r.queued()==6,
+          "motion preview should not remove Raw Input events");
+    check(next(r).type==Type::MouseRelative &&
+          next(r).type==Type::MouseRelative &&
+          next(r).type==Type::MouseAbsolute,
+          "absolute/relative event provenance was not preserved");
+}
+void mouse_frame_capture_is_exactly_once() {
+    Router r;
+    r.key(1,0x1e,false,false,true,1);
+    r.mouse_button(2,0,true,2);
+    r.mouse_move(2,10,-3,false,3);
+    r.mouse_wheel(2,120,false,4);
+    const auto preview=r.snapshot(5);
+    const auto queued=r.queued();
+    const auto first=r.capture_frame(6);
+    check(first.key_down(0x1e) && first.button_down(0) &&
+          first.motion.relative_x==10 && first.motion.relative_y==-3 &&
+          first.motion.wheel_vertical==120 &&
+          first.motion.packets==2 && first.captured_ticks==6,
+          "frame capture lost held state or movement");
+    check(r.queued()==queued && r.key_down(0x1e),
+          "capture incorrectly drains diagnostics or held buttons");
+    const auto second=r.capture_frame(7);
+    check(second.motion.relative_x==0 && second.motion.relative_y==0 &&
+          second.motion.wheel_vertical==0 && second.motion.packets==0 &&
+          !second.motion.saturated,"captured motion replayed on next frame");
+    check(preview.motion.relative_x==10 && preview.motion.packets==2 &&
+          first.motion.relative_x==10,"prior snapshots mutated after capture");
+    r.mouse_move(3,-4,6,false,8);
+    check(r.capture_frame(9).motion.relative_x==-4 &&
+          r.capture_frame(10).motion.packets==0,
+          "new motion after capture did not form next frame");
+}
+void mouse_frame_not_lost_when_event_ring_overflows() {
+    Router r;
+    for(std::size_t i=0;i<Router::QueueLimit+127u;i++)
+        r.mouse_move(1,1,-2,false,static_cast<std::uint64_t>(i+1));
+    check(r.queued()==Router::QueueLimit && r.dropped()==127,
+          "raw diagnostic event ring should stay bounded");
+    const auto captured=r.capture_frame(1000);
+    check(captured.motion.relative_x==
+              static_cast<std::int32_t>(Router::QueueLimit+127u) &&
+          captured.motion.relative_y==
+              -2*static_cast<std::int32_t>(Router::QueueLimit+127u) &&
+          captured.motion.packets==Router::QueueLimit+127u &&
+          captured.dropped_events==127,
+          "event ring overflow incorrectly discarded frame mouse displacement");
+    r.set_focus(false,1001);
+    check(r.queued()==1 && r.snapshot(1002).motion.packets==0,
+          "focus loss must discard old motion and old diagnostic events");
+    r.mouse_move(1,99,99,false,1003);
+    check(r.capture_frame(1004).motion.packets==0,"background motion was accepted");
+    r.set_focus(true,1005);
+    r.mouse_move(1,7,-8,false,1006);
+    check(r.capture_frame(1007).motion.relative_x==7 &&
+          r.capture_frame(1008).motion.packets==0,"reacquired focus reused stale motion");
+    check(captured.motion.packets==Router::QueueLimit+127u,
+          "old snapshot mutated after focus loss");
+}
+void mouse_frame_signed_saturation_never_wraps() {
+    Router r;
+    const auto max=std::numeric_limits<std::int32_t>::max();
+    const auto min=std::numeric_limits<std::int32_t>::min();
+    r.mouse_move(1,max,min,false,1);
+    r.mouse_move(2,max,min,false,2);
+    r.mouse_wheel(1,max,false,3);
+    r.mouse_wheel(1,max,false,4);
+    const auto captured=r.capture_frame(5);
+    check(captured.motion.relative_x==max && captured.motion.relative_y==min &&
+          captured.motion.wheel_vertical==max &&
+          captured.motion.packets==4 && captured.motion.saturated,
+          "overflowed mouse displacement or wheel wrapped signed 32-bit");
+    r.mouse_move(2,min,max,false,6);
+    r.mouse_wheel(2,min,true,7);
+    r.mouse_wheel(2,min,true,8);
+    const auto negative=r.capture_frame(9);
+    check(negative.motion.relative_x==min && negative.motion.relative_y==max &&
+          negative.motion.wheel_horizontal==min && negative.motion.saturated,
+          "negative motion/wheel saturation wrapped or underflowed");
+    check(r.capture_frame(10).motion.packets==0 &&
+          !r.capture_frame(11).motion.saturated,
+          "motion overflow flag survived a frame boundary");
+}
 }
 int main() {
     try {
@@ -206,11 +306,15 @@ int main() {
         saturated_queue_disconnect_is_observable();
         immutable_frame_state_snapshots();
         snapshot_focus_and_queue_overflow();
+        mouse_frame_relative_absolute_wheel_distinction();
+        mouse_frame_capture_is_exactly_once();
+        mouse_frame_not_lost_when_event_ring_overflows();
+        mouse_frame_signed_saturation_never_wraps();
     }catch(const std::exception& ex) {
         std::cerr<<"native input deterministic tests FAILED: "<<ex.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-input-state-machine\","
-             "\"scenarios\":11,\"raw_devices_required\":false,"
+             "\"scenarios\":15,\"raw_devices_required\":false,"
              "\"focus_cleanup\":true,\"no_emulated_controller\":true,"
              "\"hardware_tested\":false}\n";
     return 0;

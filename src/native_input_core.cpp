@@ -1,4 +1,5 @@
 #include "native_input_core.hpp"
+#include <limits>
 
 namespace scarlett::input {
 namespace {
@@ -7,6 +8,25 @@ bool gamepads_equal(const Gamepad& a,const Gamepad& b) {
         a.left_x==b.left_x && a.left_y==b.left_y &&
         a.right_x==b.right_x && a.right_y==b.right_y &&
         a.left_trigger==b.left_trigger && a.right_trigger==b.right_trigger;
+}
+std::int32_t add_motion(std::int32_t current,std::int32_t delta,
+                        bool& saturated) noexcept {
+    const std::int64_t sum=static_cast<std::int64_t>(current)+delta;
+    if(sum>std::numeric_limits<std::int32_t>::max()){
+        saturated=true;
+        return std::numeric_limits<std::int32_t>::max();
+    }
+    if(sum<std::numeric_limits<std::int32_t>::min()){
+        saturated=true;
+        return std::numeric_limits<std::int32_t>::min();
+    }
+    return static_cast<std::int32_t>(sum);
+}
+void note_motion(MouseMotion& motion) noexcept {
+    if(motion.packets==std::numeric_limits<std::uint64_t>::max())
+        motion.saturated=true;
+    else
+        ++motion.packets;
 }
 }
 Router::RawDevice* Router::lookup(std::uint64_t id) {
@@ -50,6 +70,16 @@ void Router::key(std::uint64_t device,std::uint16_t scan,bool e0,bool e1,
 void Router::mouse_move(std::uint64_t device,std::int32_t x,std::int32_t y,
                         bool absolute,std::uint64_t ticks) {
     if(!focused_ || (!absolute && x==0 && y==0))return;
+    // Keep the camera-useful raw relative displacement even if the separate
+    // diagnostic event ring is full. Never confuse absolute coordinates with
+    // relative movement or turn the mouse into an emulated analog stick.
+    if(!absolute) {
+        mouse_motion_.relative_x=add_motion(mouse_motion_.relative_x,x,
+                                            mouse_motion_.saturated);
+        mouse_motion_.relative_y=add_motion(mouse_motion_.relative_y,y,
+                                            mouse_motion_.saturated);
+        note_motion(mouse_motion_);
+    }
     Event e{};e.type=absolute?Type::MouseAbsolute:Type::MouseRelative;
     e.device=device;e.clock_ticks=ticks;e.x=x;e.y=y;emit(e);
 }
@@ -65,6 +95,10 @@ void Router::mouse_button(std::uint64_t device,std::uint8_t button,bool pressed,
 void Router::mouse_wheel(std::uint64_t device,std::int32_t delta,bool horizontal,
                          std::uint64_t ticks) {
     if(!focused_ || delta==0)return;
+    auto& total=horizontal?mouse_motion_.wheel_horizontal
+                          :mouse_motion_.wheel_vertical;
+    total=add_motion(total,delta,mouse_motion_.saturated);
+    note_motion(mouse_motion_);
     Event e{};e.type=horizontal?Type::WheelHorizontal:Type::WheelVertical;
     e.device=device;e.y=delta;e.clock_ticks=ticks;emit(e);
 }
@@ -94,6 +128,7 @@ void Router::set_focus(bool focused,std::uint64_t ticks) {
     if(!focused) {
         devices_.fill({});
         pads_.fill({});
+        mouse_motion_={};  // No stale camera movement after Alt+Tab.
         // Invalidate stale messages; guarantee one focus-lost notification.
         head_=0;tail_=0;count_=0;
     }
@@ -132,11 +167,19 @@ FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
     result.focused=focused_;
     result.dropped_events=dropped_;
     result.pads=pads_;
+    result.motion=mouse_motion_;
     for(const auto& d:devices_) {
         if(!d.active)continue;
         result.keys|=d.keys;
         result.mouse_buttons|=d.buttons;
     }
     return result;
+}
+FrameSnapshot Router::capture_frame(std::uint64_t receipt_ticks) noexcept {
+    const auto frame=snapshot(receipt_ticks);
+    // Raw events can still be retrieved by tools/diagnostics. Motion is
+    // forwarded exactly once per frame through the simulation snapshot.
+    mouse_motion_={};
+    return frame;
 }
 } // namespace scarlett::input

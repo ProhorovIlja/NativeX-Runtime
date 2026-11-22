@@ -21,6 +21,9 @@ struct NativeInputProbe {
     std::uint64_t raw_messages = 0;
     std::uint64_t rejected_reports = 0;
     std::uint64_t xinput_polls = 0;
+    std::uint64_t mouse_frame_captures = 0;
+    std::uint64_t mouse_packets_captured = 0;
+    std::uint64_t saturated_mouse_frames = 0;
     std::uint32_t connected_slots = 0;
     LARGE_INTEGER frequency{};
     alignas(RAWINPUT) std::array<std::uint8_t,65536> raw_buffer{};
@@ -136,7 +139,18 @@ LRESULT CALLBACK window_proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
                 ctx->process_raw(reinterpret_cast<HRAWINPUT>(l));
                 return DefWindowProcW(hwnd,message,w,l);
             case WM_TIMER:
-                if(w==1)ctx->poll_xinput();
+                if(w==1){
+                    ctx->poll_xinput();
+                    if(ctx->interactive) {
+                        // Diagnostic owner-thread frame boundary, no input
+                        // simulation or controller injection. Timer cadence
+                        // is not a measured input-to-photon latency.
+                        const auto frame=ctx->router.capture_frame(ctx->tick());
+                        ++ctx->mouse_frame_captures;
+                        ctx->mouse_packets_captured+=frame.motion.packets;
+                        if(frame.motion.saturated)++ctx->saturated_mouse_frames;
+                    }
+                }
                 return 0;
             default: break;
         }
@@ -222,6 +236,9 @@ int run(bool interactive) {
              "\"xinput_getstate_called\":"<<(probe.xinput_polls?"true":"false")<<','
              <<"\"connected_slots\":"<<probe.connected_slots<<','
              <<"\"raw_messages_received\":"<<probe.raw_messages<<','
+             <<"\"mouse_frame_captures\":"<<probe.mouse_frame_captures<<','
+             <<"\"mouse_packets_captured\":"<<probe.mouse_packets_captured<<','
+             <<"\"saturated_mouse_frames\":"<<probe.saturated_mouse_frames<<','
              <<"\"rejected_reports\":"<<probe.rejected_reports<<','
              <<"\"clock_frequency_hz\":"<<probe.frequency.QuadPart<<','
              <<"\"actual_device_input_verified\":false,"

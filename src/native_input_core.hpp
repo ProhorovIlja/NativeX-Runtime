@@ -21,6 +21,17 @@ struct Gamepad {
     std::uint8_t left_trigger = 0;
     std::uint8_t right_trigger = 0;
 };
+// Raw unaccelerated mouse movement and wheel deltas since the last capture.
+// Absolute-position reports are deliberately NOT converted into camera motion.
+// Signed 32-bit totals saturate instead of wrapping on malicious/event bursts.
+struct MouseMotion {
+    std::int32_t relative_x = 0;
+    std::int32_t relative_y = 0;
+    std::int32_t wheel_vertical = 0;   // original signed raw wheel units
+    std::int32_t wheel_horizontal = 0;
+    std::uint64_t packets = 0;         // accepted relative and wheel reports
+    bool saturated = false;
+};
 // Immutable value returned by Router::snapshot() on the single input owner
 // thread. Copy into the simulation frame; never use raw device IDs in a save.
 struct FrameSnapshot {
@@ -28,6 +39,7 @@ struct FrameSnapshot {
     std::bitset<1024> keys{};
     std::bitset<5> mouse_buttons{};
     std::array<Gamepad,4> pads{};
+    MouseMotion motion{};
     std::uint64_t dropped_events=0;
     bool focused=true;
     bool key_down(std::uint16_t scan) const noexcept {
@@ -73,7 +85,12 @@ public:
     bool device_key_down(std::uint64_t device,std::uint16_t scan_code) const;
     bool device_button_down(std::uint64_t device,std::uint8_t button) const;
     Gamepad gamepad_state(std::uint8_t slot) const;
+    // Inspect the immutable held-state + pending motion without consuming events.
     FrameSnapshot snapshot(std::uint64_t receipt_ticks) const noexcept;
+    // Frame boundary: consume ONLY accumulated mouse deltas. Raw event ring
+    // and current keyboard/buttons/controllers remain untouched. Call once per
+    // simulation frame, from the input owner thread, after processing OS input.
+    FrameSnapshot capture_frame(std::uint64_t receipt_ticks) noexcept;
     std::size_t queued() const {return count_;}
     std::uint64_t dropped() const {return dropped_;}
     bool focused() const {return focused_;}
@@ -90,6 +107,7 @@ private:
     void emit(const Event& event);
     std::array<RawDevice,RawDeviceSlots> devices_{};
     std::array<Gamepad,GamepadSlots> pads_{};
+    MouseMotion mouse_motion_{};
     std::array<Event,QueueLimit> events_{};
     std::size_t head_=0,tail_=0,count_=0;
     std::uint64_t dropped_=0; // events dropped AND raw-device table capacity exhaustion

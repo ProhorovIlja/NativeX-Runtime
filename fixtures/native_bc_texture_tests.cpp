@@ -136,7 +136,9 @@ void malformed_inputs_never_write(){
     expect(bad,dest,Format::Bc1,Status::BufferTooShort);
     expect(good,{output.data(),59,20},Format::Bc1,Status::BufferTooShort);
     expect(good,dest,static_cast<Format>(99),Status::UnsupportedFormat);
-    bad=good;bad.block_pitch=std::numeric_limits<std::size_t>::max();
+    // A one-row source never advances by pitch, so use two block rows
+    // to exercise genuine (rows-1)*pitch size overflow protection.
+    bad=good;bad.height=5;bad.block_pitch=std::numeric_limits<std::size_t>::max();
     expect(bad,dest,Format::Bc1,Status::InvalidStride);
     bad=good;bad.block_pitch=32;bad.block_bytes=31;
     expect(bad,dest,Format::Bc3,Status::BufferTooShort);

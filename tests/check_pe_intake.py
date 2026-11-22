@@ -66,10 +66,15 @@ def fixture(path):
     struct.pack_into('<H',data,0x4C0,3)
     data[0x4C2:0x4C2+len(b'MessageBoxW\x00')]=b'MessageBoxW\x00'
     # The .pdata body is at raw 0x520 (RVA 0x1320). The referenced unwind
-    # offsets are intentionally NOT decoded, loaded or interpreted.
+    # offsets are decoded as V1 basic operations by our read-only parser.
     struct.pack_into('<IIIIII',data,0x520,
                      0x1000,0x1020,0x1350,
                      0x1020,0x1040,0x1360)
+    # Original AMD64 xdata V1: prolog 4, 40-byte UWOP_ALLOC_SMALL;
+    # second entry uses 16-byte allocation, 8-byte RBX push and handler RVA.
+    data[0x550:0x558]=bytes((0x01,4,1,0,4,0x42,0,0))
+    data[0x560:0x568]=bytes((0x09,8,2,0,8,0x12,2,0x30))
+    struct.pack_into('<I',data,0x568,0x1090)
     path.write_bytes(data)
 
 def main(exe):
@@ -93,6 +98,15 @@ def main(exe):
             {'begin_rva':0x1020,'end_rva':0x1040,'unwind_rva':0x1360}
         ],info
         assert info['unwind_codes_decoded'] is False,info
+        assert info['unwind_codes_executed'] is False,info
+        assert info['unwind_infos']==[
+            {'unwind_rva':0x1350,'version':1,'flags':0,'prolog_bytes':4,
+             'code_slots':1,'decoded_v1_basic_operations':True,
+             'stack_allocation_bytes':40,'chained':False,'handler_rva':None},
+            {'unwind_rva':0x1360,'version':1,'flags':1,'prolog_bytes':8,
+             'code_slots':2,'decoded_v1_basic_operations':True,
+             'stack_allocation_bytes':24,'chained':False,'handler_rva':0x1090}
+        ],info
         assert info['relocation_blocks']==1,info
         assert info['has_tls_directory'] is True,info
         assert info['tls_template_rva']==0x1300,info
@@ -145,5 +159,36 @@ def main(exe):
             bad.write_bytes(corrupted)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
-    print("synthetic PE32+ import, pdata, TLS template/index/callback VA inventory and corruptions: PASS")
+        # V1 metadata failures are rejected without loading the executable.
+        for offset,value in (
+            (0x550,0x00), # invalid version zero
+            (0x552,0xff), # truncated code slots
+            (0x554,0x7f), # code offset beyond prolog
+            (0x555,0x47), # reserved opcode
+            (0x555,0x11), # ALLOC_LARGE missing 2 extra slots
+            (0x560,0x29), # EHANDLER | CHAININFO conflicts
+        ):
+            corrupted=bytearray(p.read_bytes())
+            corrupted[offset]=value
+            filename=d/'invalid-xdata.exe'
+            filename.write_bytes(corrupted)
+            rejected=subprocess.run([exe,str(filename)],capture_output=True,text=True)
+            assert rejected.returncode!=0 and 'pe_intake:' in rejected.stderr,(offset,rejected.stdout,rejected.stderr)
+        corrupt_handler=bytearray(p.read_bytes())
+        struct.pack_into('<I',corrupt_handler,0x568,0)
+        invalid_handler=d/'invalid-unwind-handler.exe'
+        invalid_handler.write_bytes(corrupt_handler)
+        rejected=subprocess.run([exe,str(invalid_handler)],capture_output=True,text=True)
+        assert rejected.returncode!=0 and 'pe_intake:' in rejected.stderr
+        # V3 needs a separate decoder. Never interpret newer payload as V1.
+        newer=bytearray(p.read_bytes())
+        newer[0x550]=0x03
+        newer_path=d/'future-unwind-v3.exe'
+        newer_path.write_bytes(newer)
+        unknown=json.loads(subprocess.run([exe,str(newer_path)],
+                                        capture_output=True,text=True,check=True).stdout)
+        assert unknown['unwind_infos'][0]['version']==3
+        assert unknown['unwind_infos'][0]['decoded_v1_basic_operations'] is False
+        assert unknown['unwind_infos'][0]['stack_allocation_bytes'] is None
+    print("synthetic PE32+ named imports, bounded V1 xdata ops, TLS, exceptions and corruption: PASS")
 if __name__=='__main__':main(sys.argv[1])

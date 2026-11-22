@@ -124,6 +124,13 @@ LRESULT CALLBACK window_proc(HWND hwnd,UINT message,WPARAM w,LPARAM l) {
             case WM_ACTIVATEAPP:
                 ctx->router.set_focus(w!=FALSE,ctx->tick());
                 return 0;
+            case WM_INPUT_DEVICE_CHANGE:
+                if(w==GIDC_REMOVAL) {
+                    const auto device=static_cast<std::uint64_t>(
+                        reinterpret_cast<std::uintptr_t>(reinterpret_cast<HANDLE>(l)));
+                    ctx->router.raw_device_removed(device,ctx->tick());
+                }
+                return 0;
             case WM_INPUT:
                 // For RIM_INPUT, DefWindowProc must run to allow Win32 cleanup.
                 ctx->process_raw(reinterpret_cast<HRAWINPUT>(l));

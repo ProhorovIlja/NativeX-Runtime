@@ -7,7 +7,7 @@ import sys
 import tempfile
 
 def fixture(path):
-    data=bytearray(0x800)
+    data=bytearray(0x900)
     struct.pack_into('<H',data,0,0x5A4D)
     struct.pack_into('<I',data,0x3C,0x80)
     data[0x80:0x84]=b'PE\x00\x00'
@@ -28,12 +28,13 @@ def fixture(path):
     struct.pack_into('<II',data,opt+112+13*8,0x10C0,64)
     sh=opt+0xF0
     data[sh:sh+8]=b'.rdata\x00\x00'
-    struct.pack_into('<IIII',data,sh+8,0x100,0x1000,0x200,0x200)
-    struct.pack_into('<IIIII',data,0x200,0x1050,0,0,0x1040,0x1050)
+    struct.pack_into('<IIII',data,sh+8,0x400,0x1000,0x400,0x200)
+    struct.pack_into('<IIIII',data,0x200,0x1250,0,0,0x1040,0x1250)
     data[0x240:0x240+13]=b'KERNEL32.dll\x00'
     struct.pack_into('<II',data,0x280,0x1000,8)
     # Zero-initialized synthetic PE32+ TLS directory at raw offset 0x290.
     struct.pack_into('<II',data,0x2c0,1,0x1100)
+    struct.pack_into('<I',data,0x2c0+16,0x12A0)  # delay import INT
     data[0x300:0x300+11]=b'USER32.dll\x00'
     # IMAGE_EXPORT_DIRECTORY: three named exports, one forwarded by RVA.
     struct.pack_into('<IIHHIIIIIII',data,0x340,
@@ -46,6 +47,14 @@ def fixture(path):
     data[0x3C4:0x3C4+len(b'ScarlettMultiply\x00')]=b'ScarlettMultiply\x00'
     data[0x3DC:0x3DC+len(b'AliasForward\x00')]=b'AliasForward\x00'
     data[0x3EE:0x3EE+len(b'KERNEL32.Sleep\x00')]=b'KERNEL32.Sleep\x00'
+    # Original IMAGE_THUNK_DATA64: named hint/name, ordinal, terminator.
+    struct.pack_into('<QQQ',data,0x450,0x1270,0x800000000000007B,0)
+    struct.pack_into('<H',data,0x470,0x002A)
+    data[0x472:0x472+len(b'GetCurrentProcessId\x00')]=b'GetCurrentProcessId\x00'
+    # Delay imported USER32.MessageBoxW through a separate INT table.
+    struct.pack_into('<QQ',data,0x4A0,0x12C0,0)
+    struct.pack_into('<H',data,0x4C0,3)
+    data[0x4C2:0x4C2+len(b'MessageBoxW\x00')]=b'MessageBoxW\x00'
     path.write_bytes(data)
 
 def main(exe):
@@ -57,6 +66,13 @@ def main(exe):
         assert info['section_names']==['.rdata'] and info['entry_rva']==0x1000,info
         assert info['import_modules']==['KERNEL32.dll'],info
         assert info['delay_import_modules']==['USER32.dll'],info
+        assert info['import_symbols']==[
+            {'module':'KERNEL32.dll','name':'GetCurrentProcessId','ordinal':None},
+            {'module':'KERNEL32.dll','name':None,'ordinal':123}
+        ],info
+        assert info['delay_import_symbols']==[
+            {'module':'USER32.dll','name':'MessageBoxW','ordinal':None}
+        ],info
         assert info['relocation_blocks']==1,info
         assert info['has_tls_directory'] is True,info
         assert info['exports']==[
@@ -71,6 +87,11 @@ def main(exe):
             assert run.returncode!=0 and 'pe_intake:' in run.stderr
         # Negative cases: malformed exports and imports must fail without code execution.
         for raw_offset, bad_value in ((0x280+4, 0xffffffff),
+                                      (0x450, 0xfffffffe), # invalid import name RVA
+                                      (0x450+4, 0x00000001), # invalid 64-bit name high word
+                                      (0x458+4, 0xc0000000), # ordinal has forbidden flag bits
+                                      (0x4a0, 0xfffffffe), # bad delay import INT name
+                                      (0x2c0+16, 0xfffffffe), # bad delay lookup RVA
                                       (0x98+112+9*8+4, 8),
                                       (0x2c0, 0),
                                       (0x340+20, 0xffffffff),
@@ -82,5 +103,5 @@ def main(exe):
             bad.write_bytes(corrupted)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
-    print("synthetic PE32+ exports, forwarders, imports, TLS, relocations and corruption: PASS")
+    print("synthetic PE32+ named/ordinal imports, delayed thunks, exports, TLS, relocations and corruption: PASS")
 if __name__=='__main__':main(sys.argv[1])

@@ -165,7 +165,7 @@ bool timeouts(NativeSocket socket){
 #endif
 }
 int child(std::uint16_t port,bool oversized){
-    Winsock sockets{};
+    [[maybe_unused]] Winsock sockets{};
     Socket connection{};
     connection.fd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(connection.fd==Invalid||!timeouts(connection.fd))return 101;
@@ -274,7 +274,7 @@ Socket accept_bounded(NativeSocket listener){
     return connected;
 }
 int parent(){
-    Winsock sockets{};
+    [[maybe_unused]] Winsock sockets{};
     Socket listener{};
     listener.fd=socket(AF_INET,SOCK_STREAM,IPPROTO_TCP);
     if(listener.fd==Invalid||!timeouts(listener.fd))

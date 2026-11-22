@@ -504,3 +504,17 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_real_placeholder64_remap
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
 endif()
+
+# Original x64 Windows dynamic RUNTIME_FUNCTION / .pdata registration.
+# Hand-authored host CPU bytes RaiseException and walk a genuine SEH frame.
+# W^X memory; no title EXE, CPU emulation or Xbox exception assumptions.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_dynamic_unwind fixtures/native_win_dynamic_unwind.cpp)
+  target_compile_features(native_win_dynamic_unwind PRIVATE cxx_std_17)
+  if(MSVC)
+    target_compile_options(native_win_dynamic_unwind PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_seh_registered_x64_unwind
+    COMMAND native_win_dynamic_unwind)
+  set_tests_properties(native_win_seh_registered_x64_unwind PROPERTIES TIMEOUT 20)
+endif()

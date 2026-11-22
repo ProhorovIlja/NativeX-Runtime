@@ -6,6 +6,9 @@ Scarlett Windows Compat develops small, reproducible **clean-room test tools** f
 
 ## What is here
 
+
+**Native-loaded optimized PE memory regression:** [PR #69](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/69) source-built an original CRT-free MSVC `/O2` x64 PE32+ program and executed it through the pinned independent Windows loader. The test revealed and fixed an actual `memset` link problem by using inline `__stosb`; all six native PE tests returned exactly **42, 43, 44, 45, 46, 47** ([Windows CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44969822744)). This is not execution of the Xbox title or validation of full GDK compatibility.
+
 **Newest source-built Windows/Linux host functionality (2026-11-22):** real 64 KiB CPU shared memory mapped from two independent OS processes ([PR #65](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/65)), a full **12-frame** Win32 D3D12 WARP/DXGI Present loop with one-frame pacing and safe live `ResizeBuffers` ([PR #66](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/66)), two real Windows/Linux localhost TCP child processes exchanging exact **256 KiB** messages and rejecting oversized requests ([PR #67](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/67)), and strict BT.601/BT.709 NV12-to-BGRA8 CPU video surfaces with odd dimensions and checked strides ([PR #68](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/68)). All passed native Windows/Linux CI, but **none** is a playable GTA VI port, real hardware video decoder, physical GPU benchmark or completed network gameplay. See [new source and licensing audit](docs/NATIVE_PLATFORM_UPSTREAM_AUDIT_2026-11-22.md).
 
 

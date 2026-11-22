@@ -21,6 +21,22 @@ struct Gamepad {
     std::uint8_t left_trigger = 0;
     std::uint8_t right_trigger = 0;
 };
+// Immutable value returned by Router::snapshot() on the single input owner
+// thread. Copy into the simulation frame; never use raw device IDs in a save.
+struct FrameSnapshot {
+    std::uint64_t captured_ticks=0;
+    std::bitset<1024> keys{};
+    std::bitset<5> mouse_buttons{};
+    std::array<Gamepad,4> pads{};
+    std::uint64_t dropped_events=0;
+    bool focused=true;
+    bool key_down(std::uint16_t scan) const noexcept {
+        return scan<keys.size() && keys.test(scan);
+    }
+    bool button_down(std::uint8_t button) const noexcept {
+        return button<mouse_buttons.size() && mouse_buttons.test(button);
+    }
+};
 struct Event {
     Type type = Type::Key;
     std::uint64_t clock_ticks = 0; // platform monotonic receipt ticks, not hardware timestamp
@@ -57,6 +73,7 @@ public:
     bool device_key_down(std::uint64_t device,std::uint16_t scan_code) const;
     bool device_button_down(std::uint64_t device,std::uint8_t button) const;
     Gamepad gamepad_state(std::uint8_t slot) const;
+    FrameSnapshot snapshot(std::uint64_t receipt_ticks) const noexcept;
     std::size_t queued() const {return count_;}
     std::uint64_t dropped() const {return dropped_;}
     bool focused() const {return focused_;}

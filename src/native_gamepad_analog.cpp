@@ -13,6 +13,11 @@ float axis(std::int16_t v) noexcept {
     return v<0 ? static_cast<float>(v)/32768.0f
                : static_cast<float>(v)/32767.0f;
 }
+float normalized_trigger(std::uint8_t raw,std::uint8_t floor) noexcept {
+    if(raw<=floor)return 0.0f;
+    return static_cast<float>(static_cast<unsigned>(raw)-floor)/
+           static_cast<float>(255u-static_cast<unsigned>(floor));
+}
 Stick normalize(std::int16_t raw_x,std::int16_t raw_y,
                 const StickConfig& config) noexcept {
     const float x=axis(raw_x),y=axis(raw_y);
@@ -30,7 +35,7 @@ Stick normalize(std::int16_t raw_x,std::int16_t raw_y,
 }
 Status sample(const input::FrameSnapshot& frame,std::size_t slot,
               const StickConfig& left,const StickConfig& right,
-              Controller& output) noexcept {
+              Controller& output,std::uint8_t trigger_floor) noexcept {
     if(slot>=frame.pads.size())return Status::InvalidSlot;
     if(!valid(left)||!valid(right))return Status::InvalidConfig;
     Controller result{};
@@ -39,8 +44,8 @@ Status sample(const input::FrameSnapshot& frame,std::size_t slot,
         result.connected=true;
         result.left=normalize(pad.left_x,pad.left_y,left);
         result.right=normalize(pad.right_x,pad.right_y,right);
-        result.left_trigger=static_cast<float>(pad.left_trigger)/255.0f;
-        result.right_trigger=static_cast<float>(pad.right_trigger)/255.0f;
+        result.left_trigger=normalized_trigger(pad.left_trigger,trigger_floor);
+        result.right_trigger=normalized_trigger(pad.right_trigger,trigger_floor);
     }
     output=result;
     return Status::Ok;

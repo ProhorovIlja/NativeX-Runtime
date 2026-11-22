@@ -7,6 +7,7 @@
 #include <dxgi1_6.h>
 #include <wrl/client.h>
 #include <cstdint>
+#include <cstring>
 #include <iostream>
 using Microsoft::WRL::ComPtr;
 namespace {
@@ -54,7 +55,7 @@ D3D12_RESOURCE_BARRIER transition(ID3D12Resource* resource,
     b.Transition.StateAfter=after;
     return b;
 }
-int run(){
+int run(bool latency_one){
     Window window{};
     if(!window.create())
         return skip("Win32 desktop HWND not available",HRESULT_FROM_WIN32(GetLastError()));
@@ -83,6 +84,7 @@ int run(){
     chain_desc.Scaling=DXGI_SCALING_STRETCH;
     chain_desc.SwapEffect=DXGI_SWAP_EFFECT_FLIP_DISCARD;
     chain_desc.AlphaMode=DXGI_ALPHA_MODE_IGNORE;
+    if(latency_one) chain_desc.Flags=DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT;
     ComPtr<IDXGISwapChain1> initial;
     hr=factory->CreateSwapChainForHwnd(queue.Get(),window.hwnd,
                                         &chain_desc,nullptr,nullptr,&initial);
@@ -94,6 +96,23 @@ int run(){
     }
     ComPtr<IDXGISwapChain3> chain;
     if(FAILED(hr=initial.As(&chain)))return fail("Query IDXGISwapChain3",hr);
+    if(latency_one){
+        ComPtr<IDXGISwapChain2> latency_chain;
+        if(FAILED(hr=initial.As(&latency_chain)))
+            return skip("IDXGISwapChain2 latency interface unavailable",hr);
+        hr=latency_chain->SetMaximumFrameLatency(1);
+        if(FAILED(hr))
+            return skip("SetMaximumFrameLatency(1) unsupported",hr);
+        HANDLE ready=latency_chain->GetFrameLatencyWaitableObject();
+        if(!ready)
+            return skip("DXGI frame latency waitable object unavailable",
+                        HRESULT_FROM_WIN32(GetLastError()));
+        const DWORD waited=WaitForSingleObject(ready,5000);
+        CloseHandle(ready);
+        if(waited!=WAIT_OBJECT_0) {
+            std::cerr<<"Frame latency waitable object not signaled\n";return 1;
+        }
+    }
     D3D12_DESCRIPTOR_HEAP_DESC heap_desc{};
     heap_desc.Type=D3D12_DESCRIPTOR_HEAP_TYPE_RTV;
     heap_desc.NumDescriptors=2;
@@ -163,4 +182,9 @@ int run(){
     return 0;
 }
 }
-int main(){return run();}
+int main(int argc,char**argv){
+    if(argc==1)return run(false);
+    if(argc==2 && std::strcmp(argv[1],"--frame-latency-one")==0)return run(true);
+    std::cerr<<"Usage: native_win_dxgi_present [--frame-latency-one]\n";
+    return 2;
+}

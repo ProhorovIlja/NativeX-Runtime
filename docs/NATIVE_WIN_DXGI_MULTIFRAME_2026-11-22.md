@@ -1,0 +1,13 @@
+# Native Windows D3D12 WARP multi-frame DXGI Present and live resize acceptance
+
+Original source-built `fixtures/native_win_dxgi_multiframe.cpp`, prepared 2026-11-22. This extends the independently verified [single-frame DXGI Present](NATIVE_WIN_DXGI_PRESENT_2026-11-22.md) and [DXGI one-frame waitable object](NATIVE_WIN_DXGI_LATENCY_2026-11-22.md) tests.
+
+The fixture creates a Win32 HWND, D3D12 WARP software adapter, direct command queue, two-buffer DXGI flip-discard swapchain and its `DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT`. It sets `SetMaximumFrameLatency(1)` and **waits for the actual event** before submitting each frame. In an original 12-frame loop it identifies the current backbuffer, creates temporary RTV/command allocator/command list, transitions that backbuffer PRESENT→RENDER_TARGET→PRESENT, clears with a per-frame color, executes the real GPU command queue, calls **`IDXGISwapChain3::Present(1,0)`**, signals and waits for a fresh D3D12 fence. Backbuffer COM references are released after the fence, not retained across the resize.
+
+At frame 6 the program calls **`ResizeBuffers(2,96,64,...)`** after the previous frame's completion fence, rebuilds the RTV descriptor heap and validates the new chain dimensions. It requires 12 successful real Present calls, both backbuffer indices observed, one successful live resize and all fence completions. It records CPU-side phase durations using the previously source-tested `native_frame_timeline` collector and exposes the observed p95 for diagnostics only.
+
+If headless CI cannot create a Win32 desktop WARP swapchain or access required DXGI frame-latency API features, the program returns **CTest skip 77** rather than claiming capability. An error **after swapchain creation** (including failed resize, fence timeout, missing index flip, invalid frame timestamp or device removal) is a hard test failure.
+
+This exercises **Windows desktop native API behavior**: not visual correctness on a monitor, target GPU rendering, Xbox D3D12.X commands, HDR/VRR/sync policy under high refresh, actual game frame pacing or input-to-photon latency. Software WARP is a correctness reference, **not** a frame rate target. After actual authorized game files exist, native Windows single-player frame scheduling will need its real command buffers, device-loss handling, resize/minimize/fullscreen transitions, physical AMD/NVIDIA/Intel acceptance and p95/p99 hardware data.
+
+References: [Microsoft DXGI ResizeBuffers](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/nf-dxgi-idxgiswapchain-resizebuffers) and [waitable swapchain guidelines](https://learn.microsoft.com/en-us/windows/win32/direct3ddxgi/waitable-object-swap-chains).

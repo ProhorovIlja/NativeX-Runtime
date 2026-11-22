@@ -1,0 +1,13 @@
+# Win64 true SEH through dynamically registered native AMD64 unwind metadata
+
+Original 2026-11-22 Windows x64 fixture `fixtures/native_win_dynamic_unwind.cpp`. This is **not** an Xbox game emulator or a claim that any console title is exception-safe; it tests real Windows **native x64 instruction execution and OS stack unwind registration**.
+
+The program reserves a private 4 KiB memory region as **read/write only**, copies a fixed independently authored 34-byte Win64 function which allocates 40 bytes of stack shadow space and executes `RaiseException(0xE04A1701, 0, 0, nullptr)` with normal Win64 register arguments. It places an 8-byte AMD64 UNWIND_INFO record at offset 64 encoding a four-byte prolog and `UWOP_ALLOC_SMALL` of **40 bytes**. Then it changes memory to **read+execute**, flushes the CPU instruction cache and registers one `RUNTIME_FUNCTION` covering the code with **RtlAddFunctionTable**. The code never retains RWX permissions.
+
+Acceptance verifies that `RtlLookupFunctionEntry` is absent before registration; present with the exact function boundaries and image base afterward; then calls this native function from a separately compiled MSVC `__try/__except` filter. Its raised exception can be caught **only if the Windows unwinder crosses the registered synthetic function frame correctly**. The test checks the exact expected exception code and does not swallow unexpected exceptions. It then calls `RtlDeleteFunctionTable` and ensures lookup no longer resolves the entry. Cleanup releases the original allocation.
+
+The original cross-platform [PE32+ .pdata metadata parser](PE32_AMD64_EXCEPTION_DIRECTORY_2026-11-22.md) merely inventories RUNTIME_FUNCTION entries, while this Windows-only test exercises **genuine Windows unwind registration and stack walking** on a separate synthetic function. Passing both will not establish that some third-party loader registers *its* PE's .pdata, initializes TLS callbacks, translates console exception flags, handles all chained UNWIND_INFO opcodes, C++ EH or Xbox GDK API dependencies. No uncaught exception should be intentionally propagated to the runner outside the per-test process.
+
+Sources: Microsoft [RtlAddFunctionTable](https://learn.microsoft.com/en-us/windows/win32/api/winnt/nf-winnt-rtladdfunctiontable), [x64 exception handling](https://learn.microsoft.com/en-us/cpp/build/exception-handling-x64), [Windows executable memory protection](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-virtualprotect).
+
+No proprietary files, new scheduled background tasks, hooks, drivers, elevated privileges or external GPL code are used. All test instructions are machine-native x86-64; CPU emulation is not involved.

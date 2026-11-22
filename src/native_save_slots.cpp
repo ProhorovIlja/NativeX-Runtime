@@ -106,14 +106,17 @@ struct Latest {
 Latest inspect(const std::filesystem::path& directory) {
     auto a=read_slot(location(directory,Slot::A));
     auto b=read_slot(location(directory,Slot::B));
+    // If either file cannot be inspected, the unreadable slot could hold
+    // the newest generation. Never silently fall back to a stale snapshot
+    // or accept a write based on incomplete generation evidence.
+    if(a.status==Status::IoError || b.status==Status::IoError)
+        return {Status::IoError,{},Slot::B};
     if(a.status==Status::Ok && (b.status!=Status::Ok ||
                                a.snapshot.generation>=b.snapshot.generation))
         return {Status::Ok,std::move(a.snapshot),Slot::A};
     if(b.status==Status::Ok)return {Status::Ok,std::move(b.snapshot),Slot::B};
     if(a.status==Status::NotFound && b.status==Status::NotFound)
         return {Status::NotFound,{},Slot::B};
-    if(a.status==Status::IoError||b.status==Status::IoError)
-        return {Status::IoError,{},Slot::B};
     return {Status::Corrupt,{},Slot::B};
 }
 #ifdef _WIN32

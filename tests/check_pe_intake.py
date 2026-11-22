@@ -34,7 +34,15 @@ def fixture(path):
     struct.pack_into('<IIIII',data,0x200,0x1250,0,0,0x1040,0x1250)
     data[0x240:0x240+13]=b'KERNEL32.dll\x00'
     struct.pack_into('<II',data,0x280,0x1000,8)
-    # Zero-initialized synthetic PE32+ TLS directory at raw offset 0x290.
+    # Self-contained synthetic PE32+ TLS directory at raw offset 0x290.
+    # IMAGE_TLS_DIRECTORY64 uses absolute image VA fields, not ordinary RVA.
+    base=0x140000000
+    struct.pack_into('<QQQQII',data,0x290,
+                     base+0x1300,base+0x1308,base+0x1310,
+                     base+0x12E0,16,0)
+    struct.pack_into('<QQQ',data,0x4E0,base+0x1000,base+0x1010,0)
+    data[0x500:0x508]=bytes([7,11,13,17,19,23,29,31])
+    struct.pack_into('<I',data,0x510,0)
     struct.pack_into('<II',data,0x2c0,1,0x1100)
     struct.pack_into('<I',data,0x2c0+16,0x12A0)  # delay import INT
     data[0x300:0x300+11]=b'USER32.dll\x00'
@@ -87,6 +95,12 @@ def main(exe):
         assert info['unwind_codes_decoded'] is False,info
         assert info['relocation_blocks']==1,info
         assert info['has_tls_directory'] is True,info
+        assert info['tls_template_rva']==0x1300,info
+        assert info['tls_template_bytes']==8,info
+        assert info['tls_zero_fill_bytes']==16,info
+        assert info['tls_index_rva']==0x1310,info
+        assert info['tls_callback_rvas']==[0x1000,0x1010],info
+        assert info['tls_callbacks_executed'] is False,info
         assert info['exports']==[
             {'name':'ScarlettAdd','ordinal':5,'forwarder':None},
             {'name':'ScarlettMultiply','ordinal':6,'forwarder':None},
@@ -98,7 +112,15 @@ def main(exe):
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr
         # Negative cases: malformed exports and imports must fail without code execution.
-        for raw_offset, bad_value in ((0x98+112+3*8+4, 13), # invalid pdata extent
+        for raw_offset, bad_value in ((0x290, 0xffffffff), # start VA out of image
+                                      (0x290+4, 0), # missing image-base high bits
+                                      (0x298, 0x12f0), # end < start
+                                      (0x290+16, 0xffffffff), # bad TLS index
+                                      (0x290+24, 0xffffffff), # bad TLS callback table VA
+                                      (0x290+32, 128*1024*1024), # oversized zero-fill
+                                      (0x4E0, 0xffffffff), # invalid callback target VA
+                                      (0x4E0+16, 0xffffffff), # invalid terminator
+                                      (0x98+112+3*8+4, 13), # invalid pdata extent
                                       (0x98+112+3*8, 0xfffffffe), # invalid pdata RVA
                                       (0x520, 0x1020), # empty function body
                                       (0x520+4, 0x1000), # begin >= end
@@ -123,5 +145,5 @@ def main(exe):
             bad.write_bytes(corrupted)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
-    print("synthetic PE32+ imports, exports, sorted AMD64 pdata, TLS, relocations and malformed directories: PASS")
+    print("synthetic PE32+ import, pdata, TLS template/index/callback VA inventory and corruptions: PASS")
 if __name__=='__main__':main(sys.argv[1])

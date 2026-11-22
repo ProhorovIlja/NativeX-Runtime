@@ -17,9 +17,6 @@ using Reserve=void* (WINAPI*)(HANDLE,void*,SIZE_T,ULONG,ULONG,void*,ULONG);
 using Map3=void* (WINAPI*)(HANDLE,HANDLE,void*,ULONG64,SIZE_T,ULONG,ULONG,void*,ULONG);
 using Unmap2=BOOL (WINAPI*)(HANDLE,void*,ULONG);
 struct Api {Reserve reserve=nullptr;Map3 map=nullptr;Unmap2 unmap=nullptr;};
-void* load(HMODULE module,const char* symbol){
-    return module?reinterpret_cast<void*>(GetProcAddress(module,symbol)):nullptr;
-}
 template<typename Fn>
 Fn get(HMODULE module,const char* symbol){
     const FARPROC pointer=module?GetProcAddress(module,symbol):nullptr;
@@ -139,7 +136,7 @@ int run(){
             return fail("split placeholder still reserved");
     }
     region.section=CreateFileMappingW(INVALID_HANDLE_VALUE,nullptr,PAGE_READWRITE,
-                                      0,BackingPages*PageBytes,nullptr);
+                                      0,static_cast<DWORD>(BackingPages*PageBytes),nullptr);
     if(!region.section)return fail("CreateFileMappingW backing section");
     // Mapping order is deliberately not contiguous or monotonic.
     if(!region.map_slot(3,0)||!region.map_slot(1,1))

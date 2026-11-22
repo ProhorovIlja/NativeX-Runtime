@@ -23,6 +23,9 @@ class PE {
   std::vector<RuntimeFunction> runtime_functions;
   uint32_t relocation_blocks=0;
   bool has_tls_directory=false;
+  std::vector<uint32_t> tls_callbacks;
+  uint32_t tls_template_rva=0, tls_template_bytes=0;
+  uint32_t tls_index_rva=0, tls_zero_fill_bytes=0;
   uint64_t image_base = 0;
   uint32_t entry = 0, headers = 0;
   void need(size_t pos,size_t n) const {
@@ -204,10 +207,52 @@ public:
         ++relocation_blocks;
       }
     }
+    // IMAGE_TLS_DIRECTORY64 fields are VAs, not RVAs; do not load or run them.
     const auto tls=dir(9);
-    if(tls.first && tls.second){
-      if(tls.second<40)throw std::runtime_error("truncated TLS directory");
-      rva(tls.first,40);
+    if(tls.first || tls.second){
+      if(!tls.first || tls.second<40)
+        throw std::runtime_error("invalid TLS directory RVA/size");
+      const size_t p=rva(tls.first,40);
+      const uint32_t image_size=u32(opt+56);
+      const auto checked_rva=[&](uint64_t va)->uint32_t {
+        if(va<image_base || va-image_base>=image_size ||
+           va-image_base>UINT32_MAX)
+          throw std::runtime_error("TLS VA outside PE32+ image");
+        return static_cast<uint32_t>(va-image_base);
+      };
+      const uint64_t start=u64(p),end=u64(p+8);
+      const uint64_t index_va=u64(p+16),callback_va=u64(p+24);
+      const uint32_t zero_fill=u32(p+32);
+      if(zero_fill>64u*1024u*1024u)
+        throw std::runtime_error("TLS zero-fill exceeds inspection limit");
+      tls_zero_fill_bytes=zero_fill;
+      if(start || end){
+        if(!start || !end || end<start)
+          throw std::runtime_error("invalid TLS raw template endpoints");
+        tls_template_rva=checked_rva(start);
+        if(end-image_base>image_size || end-start>UINT32_MAX)
+          throw std::runtime_error("invalid TLS template size");
+        tls_template_bytes=static_cast<uint32_t>(end-start);
+      }
+      if(index_va){
+        tls_index_rva=checked_rva(index_va);
+        if(uint64_t(tls_index_rva)+4u>image_size)
+          throw std::runtime_error("invalid TLS index storage");
+      }
+      if(callback_va){
+        const uint32_t callbacks_rva=checked_rva(callback_va);
+        bool terminated=false;
+        for(uint64_t i=0;i<=256u;i++){
+          const uint64_t entry=uint64_t(callbacks_rva)+i*8u;
+          if(entry>UINT32_MAX)
+            throw std::runtime_error("TLS callback table RVA overflow");
+          const uint64_t function_va=u64(rva(uint32_t(entry),8));
+          if(!function_va){terminated=true;break;}
+          if(i==256u)throw std::runtime_error("TLS callback count limit exceeded");
+          tls_callbacks.push_back(checked_rva(function_va));
+        }
+        if(!terminated)throw std::runtime_error("unterminated TLS callbacks");
+      }
       has_tls_directory=true;
     }
     const auto delay=dir(13);
@@ -273,6 +318,16 @@ public:
          <<",\"unwind_rva\":"<<fn.unwind<<"}";
     }
     out<<"],\"unwind_codes_decoded\":false";
+    out<<",\"tls_template_rva\":";
+    if(tls_template_rva)out<<tls_template_rva;else out<<"null";
+    out<<",\"tls_template_bytes\":"<<tls_template_bytes;
+    out<<",\"tls_zero_fill_bytes\":"<<tls_zero_fill_bytes;
+    out<<",\"tls_index_rva\":";
+    if(tls_index_rva)out<<tls_index_rva;else out<<"null";
+    out<<",\"tls_callback_rvas\":[";
+    for(size_t i=0;i<tls_callbacks.size();i++)
+      out<<(i?",":"")<<tls_callbacks[i];
+    out<<"],\"tls_callbacks_executed\":false";
     out<<",\"relocation_blocks\":"<<relocation_blocks
        <<",\"has_tls_directory\":"<<(has_tls_directory?"true":"false")
        <<",\"section_names\":[";

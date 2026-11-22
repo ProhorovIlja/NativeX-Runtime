@@ -277,3 +277,17 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_wasapi_shared_mix_format
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 15)
 endif()
+
+# Native Win32 window + DXGI flip-model Present, software WARP only.
+# May SKIP on headless GitHub runners, never fake successful presentation.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(native_win_dxgi_present fixtures/native_win_dxgi_present.cpp)
+  target_compile_features(native_win_dxgi_present PRIVATE cxx_std_17)
+  target_link_libraries(native_win_dxgi_present PRIVATE d3d12 dxgi user32)
+  if(MSVC)
+    target_compile_options(native_win_dxgi_present PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_d3d12_dxgi_window_present COMMAND native_win_dxgi_present)
+  set_tests_properties(native_win_d3d12_dxgi_window_present
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 30)
+endif()

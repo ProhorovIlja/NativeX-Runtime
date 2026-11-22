@@ -158,6 +158,43 @@ void neural_sdk_is_backend_scoped() {
     ensure(resolve(want,c).neural==Neural::Dlss5,
            "verified D3D12 neural adapter rejected");
 }
+void intel_xess3_vulkan_sr_does_not_authorize_fg_or_xell() {
+    Capabilities c{};
+    c.os=Os::Linux;
+    c.vendor=Vendor::Intel;
+    c.vulkan_renderer_ready=true;
+    c.temporal_input_ready=true;
+    c.frame_generation_input_ready=true;
+    c.xess_sr_ready=true;
+    c.xess_fg_ready=true;
+    c.xell_ready=true;
+    // Deliberately inject impossible provider flags to test fail-closed policy.
+    c.vulkan.xess_sr=true;
+    c.vulkan.xess_fg=true;
+    c.vulkan.xell=true;
+    const auto linux=resolve(Preferences{},c);
+    ensure(linux.backend==Backend::Vulkan && linux.upscaler==Upscaler::Xess &&
+           linux.frame_gen==FrameGen::Off && linux.latency==Latency::Engine,
+           "XeSS3 Vulkan enabled unsupported FG or XeLL on Linux");
+    c.os=Os::Windows;
+    Preferences requested{};
+    requested.backend=Backend::Vulkan;
+    requested.frame_gen=FrameGen::Xess;
+    requested.latency=Latency::Xell;
+    const auto vk_win=resolve(requested,c);
+    ensure(vk_win.backend==Backend::Vulkan && vk_win.upscaler==Upscaler::Xess &&
+           vk_win.frame_gen==FrameGen::Off && vk_win.latency==Latency::Engine,
+           "XeSS3 Vulkan enabled unsupported FG or XeLL on Windows");
+    ensure(vk_win.reasons.size()>=2,"unsupported XeSS3 requests lack diagnostics");
+    c.d3d12_renderer_ready=true;
+    c.d3d12.xess_sr=true;
+    c.d3d12.xess_fg=true;
+    c.d3d12.xell=true;
+    const auto direct=resolve(Preferences{},c);
+    ensure(direct.backend==Backend::D3D12 && direct.upscaler==Upscaler::Xess &&
+           direct.frame_gen==FrameGen::Xess && direct.latency==Latency::Xell,
+           "verified D3D12 XeSS3 SR/FG/XeLL unexpectedly blocked");
+}
 }
 int main() {
     try {
@@ -175,11 +212,12 @@ int main() {
         linux_rejects_windows_only_provider();
         latency_is_backend_scoped();
         neural_sdk_is_backend_scoped();
+        intel_xess3_vulkan_sr_does_not_authorize_fg_or_xell();
     }catch(const std::exception& e) {
         std::cerr<<"native PC feature policy FAILED: "<<e.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"source-built-native-PC-feature-policy\","
-             <<"\"scenarios\":14,\"windows_linux\":true,"
+             <<"\"scenarios\":15,\"windows_linux\":true,"
              <<"\"safe_fallbacks\":true,\"provider_sdk_executed\":false,"
              <<"\"console_game_tested\":false}\n";
     return 0;

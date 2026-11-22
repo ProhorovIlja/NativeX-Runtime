@@ -277,3 +277,20 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(native_win_wasapi_shared_mix_format
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 15)
 endif()
+
+# Original native Windows/Linux journaled two-slot persistent save snapshot.
+# Uses platform flush+replace, never a commercial game's save format.
+add_library(native_save_slots STATIC src/native_save_slots.cpp)
+target_include_directories(native_save_slots PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_save_slots PUBLIC cxx_std_17)
+add_executable(native_save_slots_tests fixtures/native_save_slots_tests.cpp)
+target_link_libraries(native_save_slots_tests PRIVATE native_save_slots)
+foreach(target native_save_slots native_save_slots_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_save_two_slot_corruption_recovery COMMAND native_save_slots_tests)
+set_tests_properties(native_pc_save_two_slot_corruption_recovery PROPERTIES TIMEOUT 25)

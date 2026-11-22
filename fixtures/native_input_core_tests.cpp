@@ -85,6 +85,64 @@ void focus_loss_guarantees_reset() {
     r.key(1,40,false,false,true,9);
     check(next(r).pressed,"key does not resume after focus regain");
 }
+void multiple_physical_keyboards_and_mice() {
+    Router r;
+    r.key(100,0x1e,false,false,true,10);
+    r.key(200,0x1e,false,false,true,11);
+    check(r.queued()==2 && r.key_down(0x1e) &&
+          r.device_key_down(100,0x1e) && r.device_key_down(200,0x1e),
+          "second physical keyboard press incorrectly deduplicated");
+    r.key(100,0x1e,false,false,false,12);
+    check(r.key_down(0x1e) && !r.device_key_down(100,0x1e) &&
+          r.device_key_down(200,0x1e),"first keyboard release cleared second keyboard");
+    r.mouse_button(300,0,true,13);
+    r.mouse_button(400,0,true,14);
+    r.mouse_button(300,0,false,15);
+    check(r.button_down(0) && !r.device_button_down(300,0) &&
+          r.device_button_down(400,0),"first mouse release cleared second mouse");
+    r.raw_device_removed(200,16);
+    check(!r.key_down(0x1e) && !r.device_key_down(200,0x1e),
+          "unplugged keyboard left held key");
+    r.raw_device_removed(400,17);
+    check(!r.button_down(0),"unplugged mouse left held button");
+    bool saw_disconnect_200=false,saw_disconnect_400=false;
+    Event event{};
+    while(r.pop(event)) {
+        if(event.type==Type::DeviceDisconnected && event.device==200)
+            saw_disconnect_200=true;
+        if(event.type==Type::DeviceDisconnected && event.device==400)
+            saw_disconnect_400=true;
+    }
+    check(saw_disconnect_200 && saw_disconnect_400,"missing device removal events");
+}
+void physical_device_capacity_and_reuse() {
+    Router r;
+    for(std::size_t i=0;i<Router::RawDeviceSlots;i++)
+        r.key(static_cast<std::uint64_t>(i+1),0x20,false,false,true,
+              static_cast<std::uint64_t>(i+1));
+    check(r.queued()==Router::RawDeviceSlots && r.key_down(0x20),
+          "max Raw Input device capacity");
+    r.key(900,0x21,false,false,true,101);
+    check(r.dropped()==1 && !r.key_down(0x21),
+          "exhausted raw device table must reject new device");
+    r.raw_device_removed(1,102);
+    check(r.key_down(0x20),"device removal cleared a different device key");
+    r.key(900,0x21,false,false,true,103);
+    check(r.key_down(0x21) && r.device_key_down(900,0x21),
+          "physical device slot not reusable after unplug");
+}
+void saturated_queue_disconnect_is_observable() {
+    Router r;
+    r.key(700,40,false,false,true,1);
+    for(std::size_t i=0;i<Router::QueueLimit;i++)
+        r.mouse_move(700,1,1,false,static_cast<std::uint64_t>(i+2));
+    check(r.queued()==Router::QueueLimit,"queue did not fill");
+    r.raw_device_removed(700,900);
+    check(!r.key_down(40) && r.queued()==1 &&
+          r.dropped()>=Router::QueueLimit &&
+          next(r).type==Type::DeviceDisconnected,
+          "unplug with full queue did not force observable state reset");
+}
 void queue_overflow_and_reset() {
     Router r;
     for(std::size_t i=0;i<Router::QueueLimit+10u;i++)
@@ -100,11 +158,14 @@ int main() {
         keys_extended_and_repeat();e1_and_invalid();
         mouse_modes_buttons_and_wheel();gamepad_changes();
         focus_loss_guarantees_reset();queue_overflow_and_reset();
+        multiple_physical_keyboards_and_mice();
+        physical_device_capacity_and_reuse();
+        saturated_queue_disconnect_is_observable();
     }catch(const std::exception& ex) {
         std::cerr<<"native input deterministic tests FAILED: "<<ex.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-input-state-machine\","
-             "\"scenarios\":6,\"raw_devices_required\":false,"
+             "\"scenarios\":9,\"raw_devices_required\":false,"
              "\"focus_cleanup\":true,\"no_emulated_controller\":true,"
              "\"hardware_tested\":false}\n";
     return 0;

@@ -15,6 +15,14 @@ This is a **source/repository inspection and decision record**, not a demonstrat
 
 These are **snapshots**, not automatically polled feeds. Record exact upstream commit plus license at the time a feature is evaluated. More permissive is not automatically faster or more complete; a demonstrated smaller implementation is better than an untested large fork.
 
+## Follow-up: new Xbox2Windows resource-root schema validator
+
+On a later GitHub check on 2026-11-22, `R0Y00/Xbox2Windows` advanced from the earlier pinned `c2fc84c` to commit [`b3d90658`](https://github.com/R0Y00/Xbox2Windows/commit/b3d90658a5b12edf60965a000978176472eb04b8) (PR #316). Its newly added Python `tools/resource_root.py` and `tests/resource_root_check.py` were source-reviewed without importing code.
+
+That upstream test validates a **specific relocated PRD0 v0x7a resource**: an approximately 96-byte header, base-address-relative virtual spans, schema directory, one-based root index, type/size matching, bounded zlib member and non-overlap checks. The fixture injects corrupt indices, overlapping directories and huge lengths. This is valuable **methodology** for fail-closed asset parsing and fuzz harnesses, but the `PRD0` format offsets, version, base pointer `0x50000000`, and zlib assumption are not verified properties of GTA VI or arbitrary Xbox titles. Therefore **no parser was merged** into our title-independent asset stream and no title-format compatibility is claimed. Future real-asset inspection must determine its own headers/layouts before choosing a schema.
+
+This is a one-time source review; no continuous tracking or scheduled monitoring was created.
+
 ## Non-negotiable engineering acceptance
 
 1. **Windows first:** direct x64 CPU execution, real PE32+ imports/relocations, SEH/unwind, TLS, loader lifecycle and GDK API semantics. An Xbox API adaptation layer is still required even when there is no CPU emulation. Synthetic MSVC PE acceptance does not validate an Xbox Game Core EXE.

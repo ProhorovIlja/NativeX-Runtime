@@ -28,6 +28,6 @@ enum class Status : std::uint8_t { Ok, InvalidSlot, InvalidConfig };
 // disconnected frame is a valid zero/neutral output; no historical state.
 Status sample(const input::FrameSnapshot& frame,std::size_t slot,
               const StickConfig& left,const StickConfig& right,
-              Controller& output) noexcept;
+              Controller& output,std::uint8_t trigger_floor=0) noexcept;
 const char* status_name(Status status) noexcept;
 } // namespace scarlett::analog

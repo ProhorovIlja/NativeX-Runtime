@@ -326,3 +326,19 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   set_tests_properties(d3d12_warp_tiled64k_exact_readback
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
 endif()
+
+# Original fixed-memory Windows QueryPerformanceCounter / Linux CLOCK_MONOTONIC
+# phase timeline and deterministic p50/p95/p99 diagnostics. No background services.
+add_library(native_frame_timeline STATIC src/native_frame_timeline.cpp)
+target_include_directories(native_frame_timeline PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_frame_timeline PUBLIC cxx_std_17)
+add_executable(native_frame_timeline_tests fixtures/native_frame_timeline_tests.cpp)
+target_link_libraries(native_frame_timeline_tests PRIVATE native_frame_timeline)
+foreach(target native_frame_timeline native_frame_timeline_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_frame_phase_percentiles COMMAND native_frame_timeline_tests)

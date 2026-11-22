@@ -10,6 +10,14 @@ Updated 2026-11-22. Implementation: `src/native_save_slots.{hpp,cpp}` and `fixtu
 - Windows: uses `CreateFileW`, `WriteFile`, `FlushFileBuffers`, then same-directory `MoveFileExW(MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)`. Linux: uses `open/write/fsync/rename`, followed by `fsync` on the containing directory. A failed synchronization or replacement reports an I/O error; the caller must reload because an error after publishing may leave a visible new generation.
 - Synthetic **fault injection** at `BeforePublish` and `AfterPublish` checks expected observable recovery, including safe handling of an uncertain completion. It does not kill processes, crash the kernel, detach disks or prove persistence after actual loss of power.
 
+## I/O error fail-closed correction (November 22)
+
+A safety bug was identified in the first version's slot selection. When slot A was valid but slot B's metadata or file data was **unreadable** (`IoError`, not merely checksum-corrupt), the original selector could accept A as the latest known save. That is unsafe: B might contain an unreadably newer generation, and the caller could trust an obsolete progress state or start a commit using an incomplete generation picture.
+
+The selector now gives **`IoError` priority over every apparently valid peer** before choosing any generation. For both `load` and `commit`, an ambiguous unreadable slot fails closed. The existing more permissive behavior for checksum-corrupt slots is retained: a physically readable **corrupt** newest slot can still fall back to a verified previous generation, under the documented two-slot recovery contract.
+
+The new independent Windows/Linux test first commits generation 1, replaces the currently absent slot B with a directory to force a deterministic non-regular-file rejection with `is_regular_file` (Windows' `file_size(directory)` alone can return a length rather than an error), verifies that `load` returns `IoError` with a reset destination and that `commit` refuses to publish. It then removes the invalid directory, commits generation 2, repeats the experiment in the opposite direction with slot A unreadable and generation-2 slot B intact, verifies fail-closed again, restores the missing old slot and confirms generation 3 can be committed and recovered. No OS permission change, administrative privilege or artificial hardware failure is required.
+
 ## Evidence and acceptance
 
 The deterministic Linux/Windows CTest checks missing directory, round-trip/reopen, stale write rejection, interruption before/after atomic publish, stage cleanup, corrupt-newest rollback, both-slots-corrupt fail-closed, empty snapshot, maximum-size payload, oversized payload rejection, and truncated record rejection. It writes **only freshly generated synthetic bytes to OS temporary directories**, removed at test exit. No game saves, title files or cloud sync accounts are accessed.

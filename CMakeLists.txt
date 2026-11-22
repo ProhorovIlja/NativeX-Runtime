@@ -343,6 +343,20 @@ foreach(target native_frame_timeline native_frame_timeline_tests)
 endforeach()
 add_test(NAME native_pc_frame_phase_percentiles COMMAND native_frame_timeline_tests)
 
+# Native Windows D3D12 WARP tile alias: two 64 KiB virtual pages share
+# a single backing 64 KiB heap tile. Explicit capability skip on WARP.
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(d3d12_warp_tile_alias fixtures/d3d12_warp_tile_alias.cpp)
+  target_compile_features(d3d12_warp_tile_alias PRIVATE cxx_std_17)
+  target_link_libraries(d3d12_warp_tile_alias PRIVATE d3d12 dxgi)
+  if(MSVC)
+    target_compile_options(d3d12_warp_tile_alias PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME d3d12_warp_tile_alias_exact_readback COMMAND d3d12_warp_tile_alias)
+  set_tests_properties(d3d12_warp_tile_alias_exact_readback
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 25)
+endif()
+
 # One integrated Windows native frame: synthetic per-device Raw Input snapshot
 # -> simulation phase -> WARP D3D12 clear -> real DXGI Present -> CPU QPC stats.
 # No virtual controllers, physical hardware or game-title code.

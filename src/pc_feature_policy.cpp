@@ -36,7 +36,8 @@ bool fg_supported(const Capabilities& c,Backend backend,FrameGen f) {
     switch(f) {
         case FrameGen::Fsr: return c.fsr_fg_ready && api.fsr_fg;
         case FrameGen::Dlss: return c.vendor==Vendor::Nvidia && c.dlss_fg_ready && api.dlss_fg;
-        case FrameGen::Xess: return c.xess_fg_ready && api.xess_fg;
+        case FrameGen::Xess: return c.os==Os::Windows && backend==Backend::D3D12 &&
+            c.xess_fg_ready && api.xess_fg;
         default: return false;
     }
 }
@@ -53,7 +54,8 @@ bool latency_supported(const Capabilities& c,Backend backend,Latency l) {
         case Latency::Reflex: return c.vendor==Vendor::Nvidia && c.reflex_ready && api.reflex;
         case Latency::AntiLag2: return c.os==Os::Windows && c.vendor==Vendor::Amd &&
             c.anti_lag2_ready && api.anti_lag2;
-        case Latency::Xell: return c.os==Os::Windows && c.xell_ready && api.xell &&
+        case Latency::Xell: return c.os==Os::Windows && backend==Backend::D3D12 &&
+            c.xell_ready && api.xell &&
             (c.vendor==Vendor::Intel || (c.xess_fg_ready && c.frame_generation_input_ready));
         case Latency::Engine: return true;
         default: return false;

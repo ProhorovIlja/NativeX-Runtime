@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <vector>
+#include <utility>
 
 namespace scarlett::save {
 constexpr std::size_t MaxPayloadBytes = 2u*1024u*1024u;

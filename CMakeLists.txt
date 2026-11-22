@@ -490,10 +490,13 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND d3d12_warp_bc_texture bc4)
   add_test(NAME native_win_d3d12_bc5_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc5)
+  add_test(NAME native_win_d3d12_bc7_mode6_gpu_cpu_differential
+    COMMAND d3d12_warp_bc_texture bc7-mode6)
   set_tests_properties(native_win_d3d12_bc1_gpu_cpu_differential
     native_win_d3d12_bc3_gpu_cpu_differential
     native_win_d3d12_bc4_gpu_cpu_differential
     native_win_d3d12_bc5_gpu_cpu_differential
+    native_win_d3d12_bc7_mode6_gpu_cpu_differential
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 35)
 endif()
 

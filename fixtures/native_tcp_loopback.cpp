@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -59,6 +60,15 @@ struct Socket {
     Socket()=default;
     Socket(const Socket&)=delete;
     Socket& operator=(const Socket&)=delete;
+    Socket(Socket&& other) noexcept : fd(other.fd){other.fd=Invalid;}
+    Socket& operator=(Socket&& other) noexcept {
+        if(this!=&other){
+            if(fd!=Invalid)close_socket(fd);
+            fd=other.fd;
+            other.fd=Invalid;
+        }
+        return *this;
+    }
 };
 std::uint8_t pattern(std::size_t index,bool reply) {
     const auto p=static_cast<std::uint8_t>((index*29u+7u)%251u);
@@ -182,6 +192,17 @@ int child(std::uint16_t port,bool oversized){
 #ifdef _WIN32
 struct Child {
     HANDLE process=nullptr;
+    Child()=default;
+    Child(const Child&)=delete;
+    Child& operator=(const Child&)=delete;
+    Child(Child&& other) noexcept : process(other.process){other.process=nullptr;}
+    Child& operator=(Child&& other) noexcept {
+        if(this!=&other){
+            if(process)CloseHandle(process);
+            process=other.process;other.process=nullptr;
+        }
+        return *this;
+    }
     ~Child(){if(process)CloseHandle(process);}
 };
 Child launch_child(const wchar_t* mode,std::uint16_t port){

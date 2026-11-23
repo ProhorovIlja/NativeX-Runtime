@@ -262,6 +262,24 @@ foreach(target native_input_core native_input_core_tests)
 endforeach()
 add_test(NAME native_pc_input_event_state_machine COMMAND native_input_core_tests)
 
+# Source-built fixed-capacity native keyboard/mouse/XInput action mapper.
+# Profile is an illustrative remappable PC action scheme, not GTA VI bindings.
+add_library(native_input_bindings STATIC src/native_input_bindings.cpp)
+target_include_directories(native_input_bindings PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(native_input_bindings PUBLIC native_input_core)
+target_compile_features(native_input_bindings PUBLIC cxx_std_17)
+add_executable(native_input_bindings_tests fixtures/native_input_bindings_tests.cpp)
+target_link_libraries(native_input_bindings_tests PRIVATE native_input_bindings)
+foreach(target native_input_bindings native_input_bindings_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_remappable_keyboard_mouse_gamepad_actions
+         COMMAND native_input_bindings_tests)
+
 # Win32 foreground Raw Input + native operating-system XInput 1.4, not a virtual pad.
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_executable(native_win_input_probe fixtures/native_win_input_probe.cpp)

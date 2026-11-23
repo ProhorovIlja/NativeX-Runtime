@@ -27,7 +27,7 @@ struct GameHooks {
     bool traffic_changes_mission_safe=false; // preserve mission traffic/routes
 };
 struct Goals {
-    bool prefer_balanced_upscaling=false; // Quality for 1080p is the default
+    UpscaleMode preferred_upscaling=UpscaleMode::Quality; // Native / Quality / Balanced
     bool allow_ambient_npc_reduction=false;
     bool allow_ambient_traffic_reduction=false;
 };

@@ -26,6 +26,43 @@ struct TestDir {
     }
     ~TestDir() {std::error_code error;std::filesystem::remove_all(path,error);}
 };
+void fair_priority_wheel() {
+    using scarlett::stream::Priority;
+    using scarlett::stream::select_next_queue;
+    const std::array<std::size_t,3> all_ready{{100,100,100}};
+    std::array<std::size_t,3> counts{{0,0,0}};
+    std::size_t cursor=0;
+    for(std::size_t i=0;i<70;i++){
+        const auto chosen=select_next_queue(all_ready,cursor);
+        check(chosen.found,"all-ready queue was incorrectly empty");
+        check(chosen.next_slot<7,"priority wheel cursor outside range");
+        ++counts[static_cast<std::size_t>(chosen.priority)];
+        cursor=chosen.next_slot;
+    }
+    check(counts[0]==40 && counts[1]==20 && counts[2]==10,
+          "4:2:1 priority scheduling ratio was not fair and bounded");
+    for(std::size_t first=0;first<7;first++){
+        std::size_t next=first;
+        bool got_background=false;
+        for(std::size_t i=0;i<7;i++){
+            const auto chosen=select_next_queue(all_ready,next);
+            if(chosen.priority==Priority::Background)got_background=true;
+            next=chosen.next_slot;
+        }
+        check(got_background,
+              "continuously busy high-priority queue starved background");
+    }
+    const std::array<std::size_t,3> only_background{{0,0,2}};
+    auto choice=select_next_queue(only_background,6);
+    check(choice.found && choice.priority==Priority::Background,
+          "background-only workload was not serviced");
+    choice=select_next_queue({{0,4,0}},3);
+    check(choice.found && choice.priority==Priority::Normal,
+          "normal-only workload was not serviced");
+    choice=select_next_queue({{0,0,0}},8);
+    check(!choice.found && choice.next_slot<7,
+          "empty queues invented an available task");
+}
 void run() {
     const std::vector<std::uint8_t> abc={'a','b','c'};
     check(scarlett::stream::fnv1a64(abc)==0xe71fa2190541574bull,"independent FNV-1a known vector");
@@ -43,6 +80,19 @@ void run() {
         check(out.good(),"synthetic asset was not flushed");
     }
     Reader reader(4,128);
+    fair_priority_wheel();
+    const auto critical=reader.submit(Request{file,8192,4096,{},
+                                           scarlett::stream::Priority::FrameCritical}).get();
+    const auto background=reader.submit(Request{file,4096,4096,{},
+                                             scarlett::stream::Priority::Background}).get();
+    check(critical.status==Status::Ok && background.status==Status::Ok &&
+          critical.bytes.size()==4096 && background.bytes.size()==4096 &&
+          critical.bytes.front()==payload[8192] &&
+          background.bytes.front()==payload[4096],
+          "priority lane integration changed read bytes or status");
+    check(reader.submit(Request{file,0,1,{},
+          static_cast<scarlett::stream::Priority>(200)}).get().status==
+          Status::InvalidRange,"unknown priority accepted");
     std::vector<std::future<Result>> futures;
     for(std::size_t i=0;i<64;i++)
         futures.push_back(reader.submit(Request{file,i*8192u,8192u,{}}));
@@ -92,6 +142,7 @@ int main() {
              <<"\"os_native_threads\":true,\"deterministic_chunks\":64,"
              <<"\"shutdown_drained\":true,\"overflow_checked\":true,"
              <<"\"game_data_used\":false,\"directstorage_executed\":false,"
-             <<"\"io_uring_executed\":false}\n";
+             <<"\"io_uring_executed\":false,"
+             <<"\"weighted_priority_4_2_1_tested\":true}\n";
     return 0;
 }

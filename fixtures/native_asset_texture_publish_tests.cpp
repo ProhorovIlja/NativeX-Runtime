@@ -114,7 +114,7 @@ void format_lengths_and_integrity_fail_closed(){
     inspect(read,Format::Bc1,4,8193,8,Status::InvalidDimensions);
     inspect(read,Format::Bc1,8192,8192,8192,Status::OutputBudgetExceeded);
     inspect(read,Format::Bc1,5,4,8,Status::InvalidStride);
-    inspect(read,Format::Bc1,4,4,9,Status::CompressedByteCountMismatch);
+    inspect(read,Format::Bc1,4,8,9,Status::CompressedByteCountMismatch);
     inspect(read,Format::Bc3,4,4,16,Status::CompressedByteCountMismatch);
     inspect(read,static_cast<Format>(200),4,4,8,Status::InvalidFormat);
     inspect(read,Format::Bc1,5,5,

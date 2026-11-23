@@ -9,7 +9,8 @@ std::size_t bytes_per_block(texture::Format format) noexcept {
         case texture::Format::Bc4:return 8u;
         case texture::Format::Bc3:
         case texture::Format::Bc5:
-        case texture::Format::Bc7Mode6:return 16u;
+        case texture::Format::Bc7Mode6:
+        case texture::Format::Bc7All:return 16u;
     }
     return 0;
 }

@@ -36,6 +36,22 @@ bool active_binding(const Binding& b,const input::FrameSnapshot& snapshot) noexc
     }
     return false;
 }
+bool edge_binding(const Binding& b,const input::FrameSnapshot& snapshot,
+                  bool pressed) noexcept {
+    if(!b.enabled)return false;
+    switch(b.source){
+        case Source::ScanCode:
+            return pressed?snapshot.key_press_edges.test(b.code):
+                           snapshot.key_release_edges.test(b.code);
+        case Source::MouseButton:
+            return pressed?snapshot.mouse_press_edges.test(b.code):
+                           snapshot.mouse_release_edges.test(b.code);
+        case Source::GamepadButton:
+            return ((pressed?snapshot.gamepad_press_edges:
+                            snapshot.gamepad_release_edges)&b.code)!=0;
+    }
+    return false;
+}
 }
 BindResult Mapper::bind(Action action,std::size_t slot,Binding value) noexcept {
     const auto target=to_index(action);
@@ -94,10 +110,24 @@ Frame Mapper::evaluate(const input::FrameSnapshot& snapshot,Context context) noe
     const bool rearm=needs_rearm_;
     for(std::size_t a=0;a<ActionCount;a++){
         const bool physical=physical_down(a,snapshot,context);
+        const bool was_inhibited=inhibited_[a];
         if(rearm)inhibited_[a]=physical;
         if(!physical)inhibited_[a]=false;
         const bool now=physical && !inhibited_[a];
-        frame.actions[a]={now,!held_[a]&&now,held_[a]&&!now};
+        bool saw_press=false,saw_release=false;
+        if(!rearm && !was_inhibited && !held_[a] && !now){
+            for(const auto& binding:binds_[a]) {
+                if(!binding.enabled || binding.context!=context)continue;
+                saw_press=saw_press||edge_binding(binding,snapshot,true);
+                saw_release=saw_release||edge_binding(binding,snapshot,false);
+            }
+        }
+        // Short complete tap: both edges occurred before frame capture,
+        // although the key/button is no longer held. Do not infer edges from
+        // the bounded diagnostic ring; use independent aggregate edge flags.
+        const bool pulse=saw_press && saw_release;
+        frame.actions[a]={now,(!held_[a]&&now)||pulse,
+                          (held_[a]&&!now)||pulse};
         held_[a]=now;
     }
     needs_rearm_=false;

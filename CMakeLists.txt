@@ -18,6 +18,16 @@ add_test(NAME pe32plus_native_import_binding_plan_pipeline
     "${CMAKE_SOURCE_DIR}/tests/check_pe_binding_pipeline.py"
     "$<TARGET_FILE:pe_intake>")
 set_tests_properties(pe32plus_native_import_binding_plan_pipeline PROPERTIES TIMEOUT 15)
+
+# Optional real Windows x64 PE32+ export-table inspection using original C and
+# .def fixtures compiled by Clang/LLVM. No DLL is loaded or executed; missing
+# clang/lld-link yields an explicit CTest skip (77), never a fabricated pass.
+add_test(NAME pe32plus_sourcebuilt_host_dll_exports_and_forwarders
+  COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/check_sourcebuilt_pe_host_exports.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_sourcebuilt_host_dll_exports_and_forwarders
+  PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_executable(win_native_probe src/platform_probe.cpp)
   target_compile_features(win_native_probe PRIVATE cxx_std_17)

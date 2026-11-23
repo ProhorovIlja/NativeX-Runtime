@@ -18,7 +18,18 @@ struct Metric {
     std::size_t count=0;
     std::uint64_t minimum_ns=0,median_ns=0,p95_ns=0,p99_ns=0,maximum_ns=0;
 };
+// Host-side intervals between successive returns from Present. They measure
+// software call-return cadence, NOT monitor scanout, actual game FPS or latency.
+// Missing and reversed/torn intervals are excluded from all percentiles.
+struct PresentCadence {
+    Metric interval{};
+    std::size_t missed_30hz=0;
+    std::size_t missed_60hz=0;
+    std::size_t missed_120hz=0;
+    std::size_t invalid_intervals=0; // duplicate/reversed or >60s discontinuity
+};
 struct Summary {
+    PresentCadence present_cadence{};
     Metric simulation{};
     Metric submit_to_present_return{};
     Metric cpu_frame{};

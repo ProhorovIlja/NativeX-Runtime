@@ -1,5 +1,13 @@
 # Development state — 2026-11-23
 
+## Thirteenth-pass: fix short native PC input taps; co-op stays deferred
+
+- **Sub-frame input transition correctness:** [PR #109](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/109), [successful Windows/Linux CI 45180542209](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/45180542209). Original C++17 Router now captures independent per-frame aggregate keyboard, mouse and connected-pad press/release flags even if diagnostic event queue overflows. Action mapper can emit both press and release for a complete short key/click/gamepad tap between two frame captures, without rereading stale edges on focus/menu/rebind changes. Windows CI **52 registered, 50 passed, 2 expected hardware/endpoint skips**; Linux passed. Twelve synthetic mapper test groups cover short taps, multi-device OR/disconnect, overflow and focus. **No timestamp/ordering of repeated taps; controller polling shorter than the poll interval is not claimed.** [Updated input contract](NATIVE_PC_REMAPPABLE_INPUT_2026-11-23.md).
+- **Strict product priority:** First prove correct native Windows x64 GTA VI boot/render/asset/scripting interface and efficient single-player performance on physical hardware, not co-op. **After that**, a private, optionally relay-assisted P2P two-player story co-op may implement Jason/Lucia roles; cosmetic compatible-model replacement, shared missions/save consistency, phone chat, progress map, optional mission skip, animation/context actions, private-session cheats and purchasable properties are proposals, **not completed features**. [Deferred requirements and acceptance gates](GTA_VI_NATIVE_FIRST_DEFERRED_COOP_SCOPE_2026-11-23.md). No executable/asset data is present and no multiplayer netcode was added.
+
+No new scheduled tasks, recurring monitoring, background checks or notifications.
+
+
 
 ## Twelfth-pass: native keyboard/mouse/gamepad action mapping, not a game port
 

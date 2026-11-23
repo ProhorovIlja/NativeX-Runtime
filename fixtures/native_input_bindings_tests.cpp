@@ -162,6 +162,8 @@ void conflicts_validation_and_rebind(){
           BindResult::InvalidInput,"unknown source accepted");
     check(m.bind(Action::Jump,0,{Source::ScanCode,0x39,static_cast<Context>(8),true})==
           BindResult::InvalidInput,"unknown context accepted");
+    // A successful configuration edit deliberately rearms on the next frame.
+    tick(m,r,1);
     r.key(2,0x39,false,false,true,2);
     check(state(tick(m,r,3),Action::Jump).pressed,"prior key still mapped");
     check(m.bind(Action::Jump,0,{Source::ScanCode,0x2e,Context::Gameplay,true})==

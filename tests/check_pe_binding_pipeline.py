@@ -11,6 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.pe_native_import_binding_plan import build_plan
+from tools.pe_native_export_verify import verify_plan
 from check_pe_intake import fixture
 
 
@@ -45,9 +46,50 @@ def main(executable):
         other = build_plan(inventory, manifest)
         assert other["summary"]["unresolved"] == 1, other
         assert not other["all_resolved"]
+        # A *second*, source-built read-only stage checks that explicitly
+        # named host PE exports really occur in provided PE inventories.
+        # Here both "DLLs" are independent original synthetic fixtures;
+        # no Windows system DLL or commercial title is loaded.
+        host_path = Path(directory) / "synthetic export host.dll"
+        fixture(host_path)
+        host_report = json.loads(subprocess.run([executable, str(host_path)],
+            capture_output=True, text=True, check=True).stdout)
+        assert host_report["export_dll_name"] == "synthetic.dll"
+        assert {e["ordinal"] for e in host_report["export_addresses"]} == {5,6,7}
+        synthetic = json.loads(json.dumps(manifest))
+        synthetic["bindings"][0].update(host_module="synthetic.dll", host_symbol="ScarlettAdd")
+        synthetic_plan = build_plan(inventory, synthetic)
+        sources = {"schema": "scarlett-host-pe-export-inventories/v1", "modules": [
+            {"module": "synthetic.dll", "pe": host_report}]}
+        check = verify_plan(synthetic_plan, sources)
+        assert check["checks"][0]["status"] == "present-direct", check
+        assert check["checks"][1]["status"] == "adapter-not-verified", check
+        assert not check["abi_verified"] and not check["game_executed"]
+        synthetic["bindings"][0]["host_symbol"] = "AliasForward"
+        forward_plan = build_plan(inventory, synthetic)
+        missing = verify_plan(forward_plan, sources)
+        assert missing["checks"][0]["status"] == "missing-host-module", missing
+
+        # Create a *synthetic* second host DLL with the forwarded symbol
+        # KERNEL32.Sleep. Its internal export DLL name matches the assigned
+        # module identity; the address is data in a crafted synthetic image.
+        second_path = Path(directory) / "synthetic kernel32 host.dll"
+        second = bytearray(host_path.read_bytes())
+        second[0x3A0:0x3B4] = b"KERNEL32.dll\x00".ljust(0x14, b"\x00")
+        second[0x3B4:0x3C4] = b"Sleep\x00".ljust(0x10, b"\x00")
+        second_path.write_bytes(second)
+        second_report = json.loads(subprocess.run([executable, str(second_path)],
+            capture_output=True, text=True, check=True).stdout)
+        assert second_report["export_dll_name"] == "KERNEL32.dll"
+        sources["modules"].append({"module": "kernel32.dll", "pe": second_report})
+        resolved = verify_plan(forward_plan, sources)
+        assert resolved["checks"][0]["status"] == "present-forwarded", resolved
+        assert [x["module"] for x in resolved["checks"][0]["chain"]] == [
+            "synthetic.dll", "kernel32.dll"], resolved
+        # The original input PE and the synthetic host have not been patched.
         assert path.exists()  # Inventory and binding plan never alter input.
         assert path.read_bytes()[:2] == b"MZ"
-    print("native Win64 PE import inventory->binding plan: PASS (synthetic only)")
+    print("native Win64 PE import->binding->export+forwarder: PASS (synthetic only)")
 
 
 if __name__ == "__main__":

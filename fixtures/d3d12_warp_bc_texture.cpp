@@ -1,4 +1,4 @@
-// Original Windows x64 BC1/BC3/BC4/BC5/BC7-mode6 hardware-format GPU decoding versus native CPU oracle.
+// Original Windows x64 BC1/BC3/BC4/BC5/all-BC7 hardware-format GPU decoding versus native CPU oracle.
 // D3D12 WARP DirectX texture upload + shader Load + 256-pixel readback,
 // not Xbox GDK/D3D12.X shader or physical GPU verification.
 #define WIN32_LEAN_AND_MEAN
@@ -81,12 +81,12 @@ struct Bytes {
     std::array<std::uint8_t,64> expected{};
     std::size_t block_bytes=0;
 };
-Bytes make_block(Format kind){
+Bytes make_block(Format kind,unsigned bc7_mode=6){
     Bytes b{};
     const bool bc3=kind==Format::Bc3;
     const bool bc4=kind==Format::Bc4;
     const bool bc5=kind==Format::Bc5;
-    const bool bc7=kind==Format::Bc7Mode6;
+    const bool bc7=kind==Format::Bc7Mode6 || kind==Format::Bc7All;
     b.block_bytes=(bc3 || bc5 || bc7)?16u:8u;
     if(bc7) {
         // Independently encoded mode6 BPTC 128-bit block; no console assets.
@@ -95,6 +95,12 @@ Bytes make_block(Format kind){
             0xf0,0x78,0x10,0x32,0x54,0x76,0x98,0xba
         }};
         b.compressed=Mode6;
+        if(kind==Format::Bc7All){
+            if(bc7_mode>7u)throw std::runtime_error("invalid BC7 mode");
+            b.compressed[0]=static_cast<std::uint8_t>(1u<<bc7_mode);
+            for(std::size_t i=1;i<b.compressed.size();i++)
+                b.compressed[i]=static_cast<std::uint8_t>((i*37u+bc7_mode*13u)&255u);
+        }
     }else if(bc4 || bc5){
         // Independent BC4 UNORM blocks with nontrivial 3-bit selectors.
         // R uses 8-interpolated mode, G uses 6-interpolated mode.
@@ -138,15 +144,16 @@ bool close_channel(std::uint8_t a,std::uint8_t b){
     const unsigned x=a,y=b;
     return x+2u>=y&&x<=y+2u;
 }
-int run(Format kind){
-    Bytes original=make_block(kind);
+int run(Format kind,unsigned bc7_mode=6){
+    Bytes original=make_block(kind,bc7_mode);
     DXGI_FORMAT format=DXGI_FORMAT_UNKNOWN;
     switch(kind){
         case Format::Bc1:format=DXGI_FORMAT_BC1_UNORM;break;
         case Format::Bc3:format=DXGI_FORMAT_BC3_UNORM;break;
         case Format::Bc4:format=DXGI_FORMAT_BC4_UNORM;break;
         case Format::Bc5:format=DXGI_FORMAT_BC5_UNORM;break;
-        case Format::Bc7Mode6:format=DXGI_FORMAT_BC7_UNORM;break;
+        case Format::Bc7Mode6:
+        case Format::Bc7All:format=DXGI_FORMAT_BC7_UNORM;break;
     }
     if(format==DXGI_FORMAT_UNKNOWN)return 2;
     HRESULT hr=S_OK;
@@ -422,7 +429,7 @@ int run(Format kind){
         return 1;
     }
     std::cout<<"{\"kind\":\"native-warp-gpu-bc-format-versus-cpu\","
-             "\"format\":\""<<(kind==Format::Bc1?"BC1":kind==Format::Bc3?"BC3":kind==Format::Bc4?"BC4":kind==Format::Bc5?"BC5":"BC7-mode6")<<"\","
+             "\"format\":\""<<(kind==Format::Bc1?"BC1":kind==Format::Bc3?"BC3":kind==Format::Bc4?"BC4":kind==Format::Bc5?"BC5":kind==Format::Bc7All?"BC7-all":"BC7-mode6")<<"\","
              "\"texture_upload_and_srv\":true,"
              "\"shader_load_and_draw\":true,"
              "\"pixels_verified\":"<<pixels<<","
@@ -436,13 +443,18 @@ int run(Format kind){
 }
 }
 int main(int argc,char** argv){
-    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3|bc4|bc5|bc7-mode6\n";return 2;}
+    if(argc!=2){std::cerr<<"Usage: d3d12_warp_bc_texture bc1|bc3|bc4|bc5|bc7-mode6|bc7-0..bc7-7\n";return 2;}
     try{
         if(std::strcmp(argv[1],"bc1")==0)return run(Format::Bc1);
         if(std::strcmp(argv[1],"bc3")==0)return run(Format::Bc3);
         if(std::strcmp(argv[1],"bc4")==0)return run(Format::Bc4);
         if(std::strcmp(argv[1],"bc5")==0)return run(Format::Bc5);
         if(std::strcmp(argv[1],"bc7-mode6")==0)return run(Format::Bc7Mode6);
+        if(std::strncmp(argv[1],"bc7-",4)==0 &&
+           std::strlen(argv[1])==5 &&
+           argv[1][4]>='0' && argv[1][4]<='7')
+            return run(Format::Bc7All,
+                       static_cast<unsigned>(argv[1][4]-'0'));
         return 2;
     }catch(const std::exception& e){
         std::cerr<<"D3D12 BC texture fixture exception: "<<e.what()<<'\n';

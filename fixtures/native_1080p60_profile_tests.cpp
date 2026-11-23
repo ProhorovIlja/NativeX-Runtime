@@ -63,9 +63,13 @@ void verified_dlss_quality_and_reflex_without_fg() {
 void balanced_opt_in_and_no_unintegrated_dlss() {
     const auto c=nvidia_1080p();
     Goals g{};
-    g.prefer_balanced_upscaling=true;
+    g.preferred_upscaling=UpscaleMode::Balanced;
     ensure(propose_1080p60(c,GameHooks{},g).upscaling==
            UpscaleMode::Balanced,"Balanced mode manual choice ignored");
+    g.preferred_upscaling=UpscaleMode::Native;
+    ensure(propose_1080p60(c,GameHooks{},g).upscaling==
+           UpscaleMode::Native,"native-resolution override ignored");
+    g.preferred_upscaling=UpscaleMode::Balanced;
     auto unintegrated=c;
     unintegrated.d3d12.dlss_sr=false;
     const auto off=propose_1080p60(unintegrated,GameHooks{},g);

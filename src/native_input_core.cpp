@@ -63,7 +63,12 @@ void Router::key(std::uint64_t device,std::uint16_t scan,bool e0,bool e1,
                                                  (e1?0x200u:0u));
     auto* slot=ensure_device(device);
     if(!slot || slot->keys.test(index)==pressed)return;
+    const bool was_down=key_down(index);
     slot->keys.set(index,pressed); // Per-device typematic suppression.
+    const bool now_down=key_down(index);
+    if(was_down!=now_down) {
+        (now_down?key_press_edges_:key_release_edges_).set(index);
+    }
     Event e{};e.type=Type::Key;e.clock_ticks=ticks;e.device=device;
     e.code=index;e.pressed=pressed;emit(e);
 }
@@ -88,7 +93,12 @@ void Router::mouse_button(std::uint64_t device,std::uint8_t button,bool pressed,
     if(!focused_ || button>=5)return;
     auto* slot=ensure_device(device);
     if(!slot || slot->buttons.test(button)==pressed)return;
+    const bool was_down=button_down(button);
     slot->buttons.set(button,pressed);
+    const bool now_down=button_down(button);
+    if(was_down!=now_down) {
+        (now_down?mouse_press_edges_:mouse_release_edges_).set(button);
+    }
     Event e{};e.type=Type::MouseButton;e.device=device;e.code=button;
     e.pressed=pressed;e.clock_ticks=ticks;emit(e);
 }
@@ -105,7 +115,17 @@ void Router::mouse_wheel(std::uint64_t device,std::int32_t delta,bool horizontal
 void Router::raw_device_removed(std::uint64_t id,std::uint64_t ticks) {
     auto* slot=lookup(id);
     if(!slot)return;
+    const auto old_keys=slot->keys;
+    const auto old_buttons=slot->buttons;
     *slot=RawDevice{}; // Atomically discard all held controls from this device.
+    for(std::size_t key=0;key<KeySlots;key++) {
+        if(old_keys.test(key) && !key_down(static_cast<std::uint16_t>(key)))
+            key_release_edges_.set(key);
+    }
+    for(std::uint8_t button=0;button<5;button++) {
+        if(old_buttons.test(button) && !button_down(button))
+            mouse_release_edges_.set(button);
+    }
     // Guarantee the consumer is notified even if the event ring is full.
     // It must resynchronize from current state when seeing this notification.
     if(count_==QueueLimit) {
@@ -118,7 +138,13 @@ void Router::raw_device_removed(std::uint64_t id,std::uint64_t ticks) {
 void Router::gamepad(std::uint8_t slot,const Gamepad& value,std::uint64_t ticks) {
     if(!focused_ || slot>=pads_.size())return;
     if(gamepads_equal(pads_[slot],value))return;
+    const auto old_buttons=combined_gamepad_buttons();
     pads_[slot]=value;
+    const auto new_buttons=combined_gamepad_buttons();
+    gamepad_press_edges_|=static_cast<std::uint16_t>(new_buttons &
+        static_cast<std::uint16_t>(~old_buttons));
+    gamepad_release_edges_|=static_cast<std::uint16_t>(old_buttons &
+        static_cast<std::uint16_t>(~new_buttons));
     Event e{};e.type=Type::Gamepad;e.code=slot;e.gamepad=value;
     e.clock_ticks=ticks;emit(e);
 }
@@ -129,6 +155,9 @@ void Router::set_focus(bool focused,std::uint64_t ticks) {
         devices_.fill({});
         pads_.fill({});
         mouse_motion_={};  // No stale camera movement after Alt+Tab.
+        key_press_edges_.reset();key_release_edges_.reset();
+        mouse_press_edges_.reset();mouse_release_edges_.reset();
+        gamepad_press_edges_=0;gamepad_release_edges_=0;
         // Invalidate stale messages; guarantee one focus-lost notification.
         head_=0;tail_=0;count_=0;
     }
@@ -161,6 +190,11 @@ bool Router::device_button_down(std::uint64_t id,std::uint8_t button) const {
 Gamepad Router::gamepad_state(std::uint8_t slot) const {
     return slot<pads_.size()?pads_[slot]:Gamepad{};
 }
+std::uint16_t Router::combined_gamepad_buttons() const noexcept {
+    std::uint16_t buttons=0;
+    for(const auto& pad:pads_)if(pad.connected)buttons|=pad.buttons;
+    return buttons;
+}
 FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
     FrameSnapshot result{};
     result.captured_ticks=receipt_ticks;
@@ -168,6 +202,12 @@ FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
     result.dropped_events=dropped_;
     result.pads=pads_;
     result.motion=mouse_motion_;
+    result.key_press_edges=key_press_edges_;
+    result.key_release_edges=key_release_edges_;
+    result.mouse_press_edges=mouse_press_edges_;
+    result.mouse_release_edges=mouse_release_edges_;
+    result.gamepad_press_edges=gamepad_press_edges_;
+    result.gamepad_release_edges=gamepad_release_edges_;
     for(const auto& d:devices_) {
         if(!d.active)continue;
         result.keys|=d.keys;
@@ -177,9 +217,12 @@ FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
 }
 FrameSnapshot Router::capture_frame(std::uint64_t receipt_ticks) noexcept {
     const auto frame=snapshot(receipt_ticks);
-    // Raw events can still be retrieved by tools/diagnostics. Motion is
-    // forwarded exactly once per frame through the simulation snapshot.
+    // Raw events still remain available for diagnostics. Independent edges
+    // survive event-ring overflow, but are delivered only once per frame.
     mouse_motion_={};
+    key_press_edges_.reset();key_release_edges_.reset();
+    mouse_press_edges_.reset();mouse_release_edges_.reset();
+    gamepad_press_edges_=0;gamepad_release_edges_=0;
     return frame;
 }
 } // namespace scarlett::input

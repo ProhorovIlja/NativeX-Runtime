@@ -10,6 +10,12 @@ else()
 endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME pe32plus_readonly_fixture COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_pe_intake.py" "$<TARGET_FILE:pe_intake>")
+# Explicitly invoked, offline source-built large PE32+ fixture: >65k AMD64
+# pdata records. Ensures --compact inspects them without large JSON artifacts.
+add_test(NAME pe32plus_large_pdata_compact_selftest
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_large_pe_compact.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_large_pdata_compact_selftest PROPERTIES TIMEOUT 25)
 # Native Windows x64 import dependency planning: no guest execution/rebinding.
 # The synthetic PE is read by pe_intake, then mapped only through explicit host
 # export or native-adapter declarations. Missing and unsupported imports fail closed.

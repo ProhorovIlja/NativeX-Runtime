@@ -49,7 +49,7 @@ struct Plan {
     std::array<SettingDecision,KnobCount> settings{};
 };
 Plan propose_1080p60(const Capabilities& pc,const GameHooks& hooks,
-                     const Goals& goals={}) noexcept;
+                     const Goals& goals={});
 const char* name(Knob knob) noexcept;
 const char* name(Level level) noexcept;
 const char* name(UpscaleMode mode) noexcept;

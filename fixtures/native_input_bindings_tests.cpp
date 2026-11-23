@@ -200,6 +200,123 @@ void raw_queue_overflow_does_not_drop_camera(){
     check(tick(m,r,1001).look_x==0.0f,
           "overflow frame motion delivered twice");
 }
+void short_keyboard_tap_before_frame_is_observable(){
+    Mapper m=Mapper::desktop_example();Router r{};
+    tick(m,r,1);
+    r.key(1,0x11,false,false,true,2);
+    r.key(1,0x11,false,false,false,3);
+    const auto peek=r.snapshot(4);
+    check(peek.key_press_edges.test(0x11) &&
+          peek.key_release_edges.test(0x11) && !peek.key_down(0x11),
+          "short keyboard press+release was lost before frame snapshot");
+    const auto frame=tick(m,r,5);
+    check(state(frame,Action::Forward).pressed &&
+          state(frame,Action::Forward).released &&
+          !state(frame,Action::Forward).down,
+          "complete short keyboard tap did not trigger both edges");
+    const auto again=tick(m,r,6);
+    check(!state(again,Action::Forward).pressed &&
+          !state(again,Action::Forward).released,
+          "short keyboard tap delivered more than once");
+    // Multiple events for the same key collapse to at-least-one edge of
+    // each kind, not an unbounded count of taps.
+    r.key(1,0x11,false,false,true,7);
+    r.key(1,0x11,false,false,false,8);
+    r.key(1,0x11,false,false,true,9);
+    const auto held=tick(m,r,10);
+    check(state(held,Action::Forward).down &&
+          state(held,Action::Forward).pressed &&
+          !state(held,Action::Forward).released,
+          "pressed final state incorrectly emitted a full tap release");
+}
+void short_mouse_and_gamepad_taps_before_frame(){
+    Mapper m=Mapper::desktop_example();Router r{};
+    tick(m,r,1);
+    r.mouse_button(9,0,true,2);
+    r.mouse_button(9,0,false,3);
+    Gamepad pad{};pad.connected=true;pad.buttons=0x1000;
+    r.gamepad(0,pad,4);
+    pad.buttons=0;
+    r.gamepad(0,pad,5);
+    const auto snapshot=r.snapshot(6);
+    check(snapshot.mouse_press_edges.test(0) &&
+          snapshot.mouse_release_edges.test(0) &&
+          (snapshot.gamepad_press_edges&0x1000)!=0 &&
+          (snapshot.gamepad_release_edges&0x1000)!=0,
+          "mouse or pad rapid tap edges missing");
+    const auto frame=tick(m,r,7);
+    check(state(frame,Action::PrimaryAttack).pressed &&
+          state(frame,Action::PrimaryAttack).released &&
+          !state(frame,Action::PrimaryAttack).down &&
+          state(frame,Action::Jump).pressed &&
+          state(frame,Action::Jump).released &&
+          !state(frame,Action::Jump).down,
+          "mouse or gamepad short tap was dropped");
+    const auto next=tick(m,r,8);
+    check(!state(next,Action::PrimaryAttack).pressed &&
+          !state(next,Action::Jump).pressed,
+          "mouse or gamepad pulse replayed after capture");
+}
+void aggregate_device_edges_and_overflow(){
+    Mapper m=Mapper::desktop_example();Router r{};
+    tick(m,r,1);
+    r.key(10,0x39,false,false,true,2);
+    r.key(20,0x39,false,false,true,3);
+    check(state(tick(m,r,4),Action::Jump).pressed,
+          "aggregate keyboard press did not reach mapper");
+    r.key(10,0x39,false,false,false,5);
+    auto peek=r.snapshot(6);
+    check(!peek.key_release_edges.test(0x39),
+          "releasing one of two active keyboards emitted an aggregate release");
+    check(state(tick(m,r,7),Action::Jump).down,
+          "action released although another keyboard still holds jump");
+    r.raw_device_removed(20,8);
+    check(r.snapshot(9).key_release_edges.test(0x39) &&
+          state(tick(m,r,10),Action::Jump).released,
+          "removing last keyboard did not report release");
+    // Make diagnostic ring full before a button tap. The independent
+    // per-frame edges must still survive dropped diagnostic records.
+    for(std::uint64_t i=0;i<Router::QueueLimit+32;i++)
+        r.mouse_move(30,1,0,false,11+i);
+    r.mouse_button(30,0,true,900);
+    r.mouse_button(30,0,false,901);
+    check(r.dropped()>=32,"synthetic diagnostic ring did not overflow");
+    const auto full=tick(m,r,902);
+    check(state(full,Action::PrimaryAttack).pressed &&
+          state(full,Action::PrimaryAttack).released &&
+          !state(full,Action::PrimaryAttack).down,
+          "quick click lost when bounded diagnostic ring overflowed");
+}
+void focus_rearm_and_rebind_drop_old_short_taps(){
+    Mapper m=Mapper::desktop_example();Router r{};
+    tick(m,r,1);
+    r.key(1,0x11,false,false,true,2);
+    r.key(1,0x11,false,false,false,3);
+    r.set_focus(false,4);
+    const auto unfocused=tick(m,r,5);
+    check(!unfocused.focused && !state(unfocused,Action::Forward).pressed,
+          "old subframe input survived loss of focus");
+    r.set_focus(true,6);
+    r.key(1,0x11,false,false,true,7);
+    r.key(1,0x11,false,false,false,8);
+    check(!state(tick(m,r,9),Action::Forward).pressed,
+          "first focus reacquisition frame triggered stale tap");
+    r.key(1,0x11,false,false,true,10);
+    r.key(1,0x11,false,false,false,11);
+    check(state(tick(m,r,12),Action::Forward).pressed,
+          "fresh post-focus rapid tap lost");
+    r.key(1,0x39,false,false,true,13);
+    r.key(1,0x39,false,false,false,14);
+    check(m.bind(Action::Jump,0,{Source::ScanCode,0x2e,
+          Context::Gameplay,true})==BindResult::Ok,
+          "jump remapping failed");
+    check(!state(tick(m,r,15),Action::Jump).pressed,
+          "rebind replayed an unrelated old key press");
+    r.key(1,0x2e,false,false,true,16);
+    r.key(1,0x2e,false,false,false,17);
+    check(state(tick(m,r,18),Action::Jump).pressed,
+          "new binding failed to capture fresh short tap");
+}
 void menu_binding_and_name_examples(){
     Mapper m=Mapper::desktop_example();Router r{};
     tick(m,r,1,Context::Menu);
@@ -222,13 +339,17 @@ int main() {
         gamepad_physical_buttons_and_disconnect();
         conflicts_validation_and_rebind();
         raw_queue_overflow_does_not_drop_camera();
+        short_keyboard_tap_before_frame_is_observable();
+        short_mouse_and_gamepad_taps_before_frame();
+        aggregate_device_edges_and_overflow();
+        focus_rearm_and_rebind_drop_old_short_taps();
         menu_binding_and_name_examples();
     }catch(const std::exception& e){
         std::cerr<<"native PC action binding FAIL: "<<e.what()<<'\n';
         return 1;
     }
     std::cout<<"{\"kind\":\"native-pc-remappable-actions\","
-             "\"scenarios\":8,\"synthetic_input_only\":true,"
+             "\"scenarios\":12,\"synthetic_input_only\":true,"
              "\"mouse_native_not_analog_emulated\":true,"
              "\"no_game_binary\":true,\"no_global_hooks\":true}\n";
     return 0;

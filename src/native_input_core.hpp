@@ -38,6 +38,15 @@ struct FrameSnapshot {
     std::uint64_t captured_ticks=0;
     std::bitset<1024> keys{};
     std::bitset<5> mouse_buttons{};
+    // Aggregated transitions since previous capture_frame. Both flags may
+    // be set for a complete press/release between simulation frames.
+    // They are independent of the bounded diagnostic event ring.
+    std::bitset<1024> key_press_edges{};
+    std::bitset<1024> key_release_edges{};
+    std::bitset<5> mouse_press_edges{};
+    std::bitset<5> mouse_release_edges{};
+    std::uint16_t gamepad_press_edges=0;
+    std::uint16_t gamepad_release_edges=0;
     std::array<Gamepad,4> pads{};
     MouseMotion motion{};
     std::uint64_t dropped_events=0;
@@ -87,9 +96,9 @@ public:
     Gamepad gamepad_state(std::uint8_t slot) const;
     // Inspect the immutable held-state + pending motion without consuming events.
     FrameSnapshot snapshot(std::uint64_t receipt_ticks) const noexcept;
-    // Frame boundary: consume ONLY accumulated mouse deltas. Raw event ring
-    // and current keyboard/buttons/controllers remain untouched. Call once per
-    // simulation frame, from the input owner thread, after processing OS input.
+    // Frame boundary: consume mouse deltas AND per-control press/release edges.
+    // Held device state and diagnostic event ring remain untouched. Call once
+    // per simulation frame from the input owner thread, after processing OS input.
     FrameSnapshot capture_frame(std::uint64_t receipt_ticks) noexcept;
     std::size_t queued() const {return count_;}
     std::uint64_t dropped() const {return dropped_;}
@@ -105,9 +114,13 @@ private:
     const RawDevice* lookup(std::uint64_t id) const;
     RawDevice* ensure_device(std::uint64_t id);
     void emit(const Event& event);
+    std::uint16_t combined_gamepad_buttons() const noexcept;
     std::array<RawDevice,RawDeviceSlots> devices_{};
     std::array<Gamepad,GamepadSlots> pads_{};
     MouseMotion mouse_motion_{};
+    std::bitset<KeySlots> key_press_edges_{},key_release_edges_{};
+    std::bitset<5> mouse_press_edges_{},mouse_release_edges_{};
+    std::uint16_t gamepad_press_edges_=0,gamepad_release_edges_=0;
     std::array<Event,QueueLimit> events_{};
     std::size_t head_=0,tail_=0,count_=0;
     std::uint64_t dropped_=0; // events dropped AND raw-device table capacity exhaustion

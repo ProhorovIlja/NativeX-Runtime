@@ -602,7 +602,7 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND d3d12_warp_bc_texture bc4)
   add_test(NAME native_win_d3d12_bc5_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc5)
-  add_test(NAME native_win_d3d12_bc7_all_mode6_gpu_cpu_differential
+  add_test(NAME native_win_d3d12_bc7_mode6_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-mode6)
   # Compare each legal BC7 compression mode with actual D3D12 WARP decoder.
   add_test(NAME native_win_d3d12_bc7_all_mode0_gpu_cpu_differential
@@ -617,7 +617,7 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND d3d12_warp_bc_texture bc7-4)
   add_test(NAME native_win_d3d12_bc7_all_mode5_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-5)
-  add_test(NAME native_win_d3d12_bc7_all_mode6_gpu_cpu_differential
+  add_test(NAME native_win_d3d12_bc7_mode6_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-6)
   add_test(NAME native_win_d3d12_bc7_all_mode7_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-7)

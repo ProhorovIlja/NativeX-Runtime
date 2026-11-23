@@ -539,6 +539,28 @@ add_test(NAME native_pc_bc1_bc3_rectangular_raster_decode
   COMMAND native_bc_texture_tests)
 set_tests_properties(native_pc_bc1_bc3_rectangular_raster_decode PROPERTIES TIMEOUT 25)
 
+# Read-only source-built BCn texture pipeline from real native asynchronous
+# file IO. Tests are synthetic and do NOT use RPF9/BCPack or the game's GPU.
+add_library(native_asset_texture_publish STATIC src/native_asset_texture_publish.cpp)
+target_include_directories(native_asset_texture_publish PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(native_asset_texture_publish PUBLIC
+  native_asset_stream native_bc_texture)
+target_compile_features(native_asset_texture_publish PUBLIC cxx_std_17)
+add_executable(native_asset_texture_publish_tests
+  fixtures/native_asset_texture_publish_tests.cpp)
+target_link_libraries(native_asset_texture_publish_tests PRIVATE
+  native_asset_texture_publish)
+foreach(target native_asset_texture_publish native_asset_texture_publish_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_asset_stream_bc_texture_publication
+  COMMAND native_asset_texture_publish_tests)
+set_tests_properties(native_pc_asset_stream_bc_texture_publication PROPERTIES TIMEOUT 25)
+
 # Original Win32 D3D12 WARP compressed BC1/BC3 real texture/SRV shader Load
 # and exact 16x16 RGBA readback versus our source-tested native CPU decoder.
 # Not Xbox texture swizzle or real AMD/NVIDIA/Intel GPU acceptance.

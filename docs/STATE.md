@@ -1,5 +1,26 @@
 # Development state — 2026-11-23
 
+## Seventeenth pass: full BC7 CPU reference (CI pending)
+
+- Integrated pinned [iOrange/bcdec](https://github.com/iOrange/bcdec)
+  v0.985 (upstream `80859ed3b7afb1c527a2a99d70c61457bea72d0c`)
+  under its MIT option, preserving LICENSE and isolated vendor build.
+  Source-built `Format::Bc7All` decodes legal modes 0..7 through the
+  existing native BC pipeline; the previous `Bc7Mode6` oracle is retained.
+- Synthetic all-mode CPU tests, mode6 differential, 5x7/padding and
+  malformed-late-block rejection are added. See
+  [full CPU BC7 limitations](NATIVE_FULL_BC7_CPU_2026-11-23.md).
+  **No GPU agreement for the other BC7 modes, Xbox swizzle, BCPack, RPF9,
+  title boot or real GTA VI performance is claimed.**
+- The immediately previous integrated native PC executable fixture
+  [PR #114](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/114)
+  has passed both Windows/Linux CI jobs and merged as
+  `728858c31a41450d916c5d8b35c59c574f998328`.
+
+No new scheduled jobs, background monitors, event notifications or
+recurring searches.
+
+
 ## Sixteenth pass: integrated native PC executable fixture (CI pending)
 
 - **Source-built end-to-end component integration:** `native_pc_vertical_slice`

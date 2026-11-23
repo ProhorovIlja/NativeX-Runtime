@@ -1,4 +1,5 @@
 #include "native_bc_texture.hpp"
+#include "bcdec.h"
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -115,13 +116,13 @@ Status decode(const Surface& src,Output dst,Format kind) noexcept {
         return Status::InvalidDimensions;
     if(kind!=Format::Bc1 && kind!=Format::Bc3 &&
        kind!=Format::Bc4 && kind!=Format::Bc5 &&
-       kind!=Format::Bc7Mode6)
+       kind!=Format::Bc7Mode6 && kind!=Format::Bc7All)
         return Status::UnsupportedFormat;
     const std::size_t width=src.width,height=src.height;
     const std::size_t block_columns=(width+3u)/4u,block_rows=(height+3u)/4u;
     const std::size_t block_bytes=
         (kind==Format::Bc3 || kind==Format::Bc5 ||
-         kind==Format::Bc7Mode6)?16u:8u;
+         kind==Format::Bc7Mode6 || kind==Format::Bc7All)?16u:8u;
     std::size_t required_src=0,required_dest=0;
     if(!required(block_rows,src.block_pitch,block_columns*block_bytes,
                  required_src) ||
@@ -140,12 +141,38 @@ Status decode(const Surface& src,Output dst,Format kind) noexcept {
                     return Status::UnsupportedBlockMode;
             }
     }
+    // All eight legal BC7 modes use a unary leading bit in the first byte.
+    // A zero first byte has no legal mode. Reject *every* malformed block
+    // before publishing any output; bcdec alone is a void reference decoder.
+    if(kind==Format::Bc7All){
+        for(std::size_t row=0;row<block_rows;row++)
+            for(std::size_t col=0;col<block_columns;col++){
+                const auto* block=src.blocks+row*src.block_pitch+col*16u;
+                if(block[0]==0u)return Status::UnsupportedBlockMode;
+            }
+    }
     // Full prevalidation before any output byte changes, including row padding.
     // The caller guarantees that compressed source and output buffers do not
     // overlap and remain owned for the entire synchronous conversion call.
     for(std::size_t by=0;by<block_rows;by++){
         for(std::size_t bx=0;bx<block_columns;bx++){
             const auto* block=src.blocks+by*src.block_pitch+bx*block_bytes;
+            if(kind==Format::Bc7All){
+                // Decode a complete block to local storage, then copy only
+                // visible texels of a non-4-aligned image. Destination padding
+                // remains untouched and invalid blocks were pre-rejected.
+                std::array<std::uint8_t,64> tile{};
+                bcdec_bc7(block,tile.data(),16);
+                const auto visible_w=(bx*4u+4u<=width)?4u:width-bx*4u;
+                const auto visible_h=(by*4u+4u<=height)?4u:height-by*4u;
+                for(std::size_t py=0;py<visible_h;py++)
+                    for(std::size_t px=0;px<visible_w;px++)
+                        for(unsigned channel=0;channel<4u;channel++)
+                            dst.rgba[(by*4u+py)*dst.pitch+
+                                     (bx*4u+px)*4u+channel]=
+                                tile[py*16u+px*4u+channel];
+                continue;
+            }
             if(kind==Format::Bc7Mode6){
                 const auto visible_w=(bx*4u+4u<=width)?4u:width-bx*4u;
                 const auto visible_h=(by*4u+4u<=height)?4u:height-by*4u;

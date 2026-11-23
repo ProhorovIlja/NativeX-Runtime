@@ -35,9 +35,9 @@ Plan propose_1080p60(const Capabilities& capability,const GameHooks& hooks,
     // Existing resolver checks integration with the selected API and complete
     // temporal inputs, not a loose file/module-presence flag.
     plan.pc=resolve(requested,capability);
-    if(plan.pc.renderer_usable && plan.pc.upscaler!=Upscaler::Native)
-        plan.upscaling=goals.prefer_balanced_upscaling?
-            UpscaleMode::Balanced:UpscaleMode::Quality;
+    if(plan.pc.renderer_usable && plan.pc.upscaler!=Upscaler::Native &&
+       goals.preferred_upscaling!=UpscaleMode::Native)
+        plan.upscaling=goals.preferred_upscaling;
 
     for(std::size_t i=0;i<KnobCount;i++){
         auto& decision=plan.settings[i];

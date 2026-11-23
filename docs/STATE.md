@@ -1,5 +1,24 @@
 # Development state — 2026-11-23
 
+## Sixteenth pass: integrated native PC executable fixture (CI pending)
+
+- **Source-built end-to-end component integration:** `native_pc_vertical_slice`
+  joins native async file IO, BC1->RGBA8 full publication, physical-device-scoped
+  input state, remappable serialized action bindings, two-slot durable saves,
+  PCM mixing and fail-closed corrupted texture rejection. The original game
+  files are not read or altered. See [scoped scenario and limits](NATIVE_PC_VERTICAL_SLICE_2026-11-23.md).
+- It builds as a normal **Windows x64 .exe** / Linux ELF and is registered in
+  existing CTest/CI. It is a **test executable**, not `GTA6.exe`, game boot,
+  game-specific shader, title FPS measurement or playable PC port.
+- The user-requested shipping product remains a direct native Windows
+  `GTA6.exe` with optional manual launcher and extended PC settings.
+  Development stays native-single-player-first; gameplay co-op follows only
+  after actual title startup and correctness are proven.
+
+No new scheduled tasks, periodic jobs, event monitors, background services
+or notification automations were added.
+
+
 ## Shipping-product correction: GTA6.exe native Windows x64
 
 - **User-required deliverable:** a directly launched native Windows `GTA6.exe`, optionally started by `GTA6Launcher.exe` offering user-invoked folder discovery, manual update check, native PC settings, then Play. The launcher is **not** an emulation environment, not mandatory, and creates no unattended updating/scheduling. Native x86-64 machine code should execute on the physical CPU, with Xbox GDK/D3D12.X imports and semantics transformed or implemented inside Windows-native game modules. There is no way to promise an API-translation-free or completely source-rebuilt binary without inspecting the original game executable.

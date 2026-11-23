@@ -682,3 +682,23 @@ foreach(target native_audio_resample native_audio_resample_tests)
 endforeach()
 add_test(NAME native_pc_stereo_pcm_rate_conversion COMMAND native_audio_resample_tests)
 set_tests_properties(native_pc_stereo_pcm_rate_conversion PROPERTIES TIMEOUT 15)
+
+
+# Integrated source-built *native* Windows/Linux PC executable.
+# One deterministic scenario crosses OS file I/O, BC1 publication, per-device
+# input, profile serialization, durable saves and PCM mixing. No GTA VI assets,
+# title EXE, proprietary SDK, game boot, real GPU output or autosave claims.
+add_executable(native_pc_vertical_slice fixtures/native_pc_vertical_slice.cpp)
+target_compile_features(native_pc_vertical_slice PRIVATE cxx_std_17)
+target_link_libraries(native_pc_vertical_slice PRIVATE
+  native_asset_texture_publish native_input_core native_action_bindings
+  native_save_slots native_audio_mix)
+if(MSVC)
+  target_compile_options(native_pc_vertical_slice PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_pc_vertical_slice PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_pc_vertical_slice_io_input_audio_save
+  COMMAND native_pc_vertical_slice)
+set_tests_properties(native_pc_vertical_slice_io_input_audio_save
+  PROPERTIES TIMEOUT 25)

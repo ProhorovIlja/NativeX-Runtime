@@ -166,6 +166,22 @@ add_test(NAME native_pc_feature_policy_scenarios COMMAND pc_feature_policy_tests
 add_test(NAME native_pc_host_inventory_selftest COMMAND native_pc_host_inventory --self-test)
 add_test(NAME native_pc_host_inventory_smoke COMMAND native_pc_host_inventory)
 
+# Native host x86-64 ISA checks. The baseline library never executes advanced
+# SIMD instructions; AVX2 eligibility requires CPUID and OS XCR0 YMM state.
+add_library(native_cpu_dispatch STATIC src/native_cpu_dispatch.cpp)
+target_include_directories(native_cpu_dispatch PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_cpu_dispatch PUBLIC cxx_std_17)
+add_executable(native_cpu_dispatch_tests fixtures/native_cpu_dispatch_tests.cpp)
+target_link_libraries(native_cpu_dispatch_tests PRIVATE native_cpu_dispatch)
+foreach(target native_cpu_dispatch native_cpu_dispatch_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_x64_cpu_isa_safe_dispatch COMMAND native_cpu_dispatch_tests)
+
 # Real source-built native Windows/Linux portable asset I/O fallback.
 find_package(Threads REQUIRED)
 add_library(native_asset_stream STATIC src/native_asset_stream.cpp)

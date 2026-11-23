@@ -1,5 +1,23 @@
 # Development state — 2026-11-23
 
+## Nineteenth pass (unmerged branch): import-level native Windows PE binding plan
+
+- Branch `feat/native-pe-import-binding-dry-run-20261123` adds an offline,
+  fail-closed `pe_intake` import-lookup/IAT-RVA inventory, explicit host-API
+  and native-adapter binding planner, synthetic unit tests and a complete
+  source-built PE -> import inventory -> binding plan fixture.
+- **Local execution verified:** patched PE inspector compiled as C++17 with
+  `-Wall -Wextra -Werror -pedantic -O2`, its existing synthetic metadata
+  test passed, six independent Python binding tests passed, and the combined
+  synthetic PE binding pipeline passed. All operate without game binaries.
+- **Not verified:** Windows/MSVC CI or compilation, Xbox GDK matching,
+  game EXE startup, IAT rewriting, real GPU/CPU title work, any title FPS.
+  No PR or merge into `main` was performed; on-demand tests only.
+- [Implementation contract and commands](NATIVE_PE_IMPORT_BINDING_PLAN_2026-11-23.md).
+  Existing scheduled and event-triggered GitHub workflows were not changed
+  or manually run.
+
+
 ## Eighteenth pass: D3D12 WARP eight-mode BC7 differential (PR CI pending)
 
 - Source-built Windows D3D12 WARP test compares its actual compressed

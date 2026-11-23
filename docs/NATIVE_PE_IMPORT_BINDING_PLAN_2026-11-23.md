@@ -10,6 +10,30 @@
 - Input JSON is bounded to 2 MiB/file; at most 32,768 imports and declarations are handled. Ambiguous records, duplicate manifest keys, misaligned IAT/lookup slots, unsupported actions and invalid metadata fail closed. Optional JSON output uses temporary-file replacement after successful validation, preserving prior reports if input validation fails.
 - `--require-complete` returns exit code 3 if **any** import is unsupported or unresolved, while still emitting the report. Exit code 2 denotes malformed input. No absence of missing imports is inferred when data is unavailable.
 
+## Large PE32+ executable inspection (source-only)
+
+When examining a large, legitimately accessible AMD64 executable, explicitly opt
+in to bounded compact metadata (max 1,000,000 validated runtime-function
+records, 512 MiB source-file budget):
+
+```sh
+./build/pe_intake /path/to/authorized.exe --compact > inspect.json
+python tools/pe_native_import_binding_plan.py --pe-json inspect.json \\
+  --bindings explicit_host_adapters.json --out import_plan.json
+```
+
+In `--compact`, the parser retains import/export symbols, IAT RVAs, TLS
+callback inventory, and relocation block count, but omits the huge raw
+`runtime_functions` and `unwind_infos` arrays and publishes aggregate
+counts. All recorded unwind ranges and version-one operations are still
+checked. The default one-argument mode retains the original **65,536**
+runtime-function limit and unchanged full detail for smaller synthetic tests.
+
+A filled import binding manifest is a *candidate plan*, never proof of ABI
+compatibility, executable authenticity, malware safety or game startup.
+Do not commit original commercial executable bytes or its raw proprietary
+sections to GitHub.
+
 ## How to reproduce with legal synthetic inputs
 
 On Linux or Windows, from repository root:

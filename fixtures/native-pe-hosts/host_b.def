@@ -1,0 +1,4 @@
+LIBRARY host_b
+EXPORTS
+  Ping @1
+  OrdinalOnly @2 NONAME

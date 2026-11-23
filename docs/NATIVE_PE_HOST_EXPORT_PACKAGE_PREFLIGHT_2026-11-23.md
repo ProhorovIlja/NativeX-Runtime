@@ -14,6 +14,12 @@
 
 **Local verification:** GNU C++17 `-O2 -Wall -Wextra -Werror -pedantic` build passed. Existing synthetic PE read-only parser tests passed. Expanded PE binding/export/package pipeline passed. **23 Python tests passed** (`python -m unittest discover -s tests -v`). All fixtures use generated synthetic PE files; no GTA VI or other commercial game image is involved. These runs were local, not Windows/MSVC CI or real game execution.
 
+## Additional real Windows PE file-format regression (cross-built, not executed)
+
+The stage now includes an **additional checked test with genuinely linked Windows x64 DLL images**, not only byte-array test fixtures. Original `fixtures/native-pe-hosts/host_a.c`, `host_a.def`, `host_b.c`, and `host_b.def` compile with installed LLVM Clang (Windows MSVC target) and `lld-link` into `host_a.dll` and `host_b.dll`. `host_a` has one direct export and two PE forwarder exports; one forwards by *name* and the other to an *ordinal-only* export in `host_b`. The C++ inspector correctly reads their PE export names, forwarder RVAs and EAT ordinals, and the Python checker verifies the chain plus an intentionally missing-host refusal.
+
+**Locally verified on Linux using LLVM cross-compilation:** both actual Win64 DLL files were built; `tests/check_sourcebuilt_pe_host_exports.py` passed. This is **Windows PE file creation and read-only inspection, not execution of the DLLs on Windows**. CTest now registers this test with an explicit skip code 77 if `clang` or `lld-link` is unavailable. It does not fetch compilers or libraries, and adds no scheduled task.
+
 ## What this result does NOT mean
 
 - No compiled or relaunched GTA VI Windows executable, no actual game data inspection, no changes to console files.

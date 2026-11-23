@@ -1,4 +1,4 @@
-// Read-only PE32+ metadata inspector. No third-party or game code.
+﻿// Read-only PE32+ metadata inspector. No third-party or game code.
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
@@ -10,15 +10,19 @@
 #include <vector>
 #include <utility>
 
+
 class PE {
   std::vector<unsigned char> b;
   struct Section { uint32_t va, size, raw, len; };
   std::vector<Section> sections;
   std::vector<std::string> names, imports, delay_imports;
   struct Export { std::string name; uint32_t ordinal; std::string forwarder; };
+  struct ExportAddress { uint32_t ordinal, target_rva; std::string forwarder; };
   struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal;
                         uint32_t lookup_rva, iat_rva; uint16_t hint; };
   std::vector<Export> exports;
+  std::vector<ExportAddress> export_addresses;
+  std::string export_module;
   std::vector<ImportSymbol> import_symbols, delay_import_symbols;
   struct RuntimeFunction { uint32_t begin, end, unwind; };
   std::vector<RuntimeFunction> runtime_functions;
@@ -36,6 +40,7 @@ class PE {
   uint32_t tls_template_rva=0, tls_template_bytes=0;
   uint32_t tls_index_rva=0, tls_zero_fill_bytes=0;
   uint64_t image_base = 0;
+  uint32_t size_of_image = 0;
   uint32_t entry = 0, headers = 0;
   void need(size_t pos,size_t n) const {
     if(pos>b.size() || n>b.size()-pos) throw std::runtime_error("truncated or out-of-range PE");
@@ -66,6 +71,25 @@ class PE {
     }
     throw std::runtime_error("unterminated PE name");
   }
+  // An IMAGE_EXPORT_DIRECTORY forwarder RVA must contain a terminated
+  // printable ASCII reference *inside that directory*, not just anywhere
+  // in the section. This is a read-only bound, not symbol resolution.
+  std::string export_forwarder(uint32_t value,uint32_t first,uint32_t length) const {
+    const uint64_t end=uint64_t(first)+length;
+    std::string text;
+    for(uint32_t i=0;i<256u;i++){
+      const uint64_t address=uint64_t(value)+i;
+      if(address>=end || address>UINT32_MAX)
+        throw std::runtime_error("unterminated PE export forwarder");
+      const auto c=b[rva(uint32_t(address),1)];
+      if(!c)return text;
+      if(c<33u || c>126u)
+        throw std::runtime_error("invalid PE export forwarder character");
+      text.push_back(char(c));
+    }
+    throw std::runtime_error("PE export forwarder too long");
+  }
+
   // Inspect PE32+ IMAGE_THUNK_DATA64 without resolving or executing imports.
   // 8-byte entries, strict ordinal flag, bounded per descriptor and globally.
   void inspect_thunks(uint32_t thunk_rva,uint32_t first_thunk_rva,
@@ -78,6 +102,11 @@ class PE {
         ?uint64_t(first_thunk_rva)+i*8u:0u;
       if(address>UINT32_MAX || iat_address>UINT32_MAX)
         throw std::runtime_error("import lookup or IAT slot RVA overflow");
+      // The IAT is a *memory* RVA and might point into the virtual tail
+      // of a section. Check SizeOfImage, not just file-backed bytes.
+      if(iat_address && (iat_address>size_of_image ||
+                         size_of_image-iat_address<8u))
+        throw std::runtime_error("import IAT slot exceeds image bounds");
       const uint64_t thunk=u64(rva(uint32_t(address),8));
       if(!thunk)return;
       if(i==8192||destination.size()>=32768)
@@ -101,6 +130,7 @@ class PE {
     }
     throw std::runtime_error("unterminated PE import thunk table");
   }
+
 
   // Read-only AMD64 UNWIND_INFO header and version-1 basic op slots.
   // Do not interpret handlers, execute exceptions, or register function tables.
@@ -207,6 +237,9 @@ public:
     size_t opt=coff+20;need(opt,optlen);
     if(u16(opt)!=0x20b)throw std::runtime_error("not PE32+");
     entry=u32(opt+16);image_base=u64(opt+24);headers=u32(opt+60);
+    size_of_image=u32(opt+56);
+    if(size_of_image==0u || headers>size_of_image)
+      throw std::runtime_error("invalid PE32+ SizeOfImage");
     size_t sh=opt+optlen;need(sh,size_t(count)*40);
     for(unsigned i=0;i<count;i++){
       size_t p=sh+i*40;std::string name;
@@ -228,6 +261,7 @@ public:
       const size_t p=rva(exp.first,40);
       const uint32_t base=u32(p+16), fn_count=u32(p+20), name_count=u32(p+24);
       const uint32_t fn_rva=u32(p+28), names_rva=u32(p+32), ord_rva=u32(p+36);
+      if(u32(p+12))export_module=module(u32(p+12));
       if(fn_count>8192 || name_count>4096 || name_count>fn_count ||
          uint64_t(base)+fn_count>uint64_t(UINT32_MAX)+1)
         throw std::runtime_error("unsupported export counts");
@@ -241,16 +275,30 @@ public:
         name_table=rva(names_rva,uint64_t(name_count)*4);
         ordinal_table=rva(ord_rva,uint64_t(name_count)*2);
       }
+      // Include every nonzero export address, including ordinal-only slots.
+      // A zero EAT slot represents no export, not a callable function.
+      // An address pointing into the export directory is a forwarder
+      // string. This remains read-only metadata; do not resolve modules.
+      for(uint32_t i=0;i<fn_count;i++){
+        const uint32_t target=u32(functions+uint64_t(i)*4);
+        if(!target)continue;
+        const bool forwarded=uint64_t(target)>=exp.first &&
+            uint64_t(target)<uint64_t(exp.first)+exp.second;
+        if(!forwarded && target>=size_of_image)
+          throw std::runtime_error("export target outside PE image");
+        export_addresses.push_back({uint32_t(uint64_t(base)+i),target,
+                                    forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
+      }
       for(uint32_t i=0;i<name_count;i++){
         const uint16_t index=u16(ordinal_table+uint64_t(i)*2);
         if(index>=fn_count)throw std::runtime_error("invalid export ordinal index");
         const uint32_t target=u32(functions+uint64_t(index)*4);
         const uint32_t export_name_rva=u32(name_table+uint64_t(i)*4);
         const uint32_t ordinal=uint32_t(uint64_t(base)+index);
-        // Forwarded exports point into the export-directory RVA range.
+        if(!target)throw std::runtime_error("named export references empty EAT slot");
         const bool forwarded=uint64_t(target)>=exp.first &&
             uint64_t(target)<uint64_t(exp.first)+exp.second;
-        exports.push_back({module(export_name_rva),ordinal,forwarded?module(target):std::string{}});
+        exports.push_back({module(export_name_rva),ordinal,forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
       }
     }
     if(u32(opt+108)>=2){
@@ -417,6 +465,17 @@ public:
       out<<"{\"name\":"<<quote(exports[i].name)<<",\"ordinal\":"<<exports[i].ordinal
          <<",\"forwarder\":";
       if(exports[i].forwarder.empty())out<<"null";else out<<quote(exports[i].forwarder);
+      out<<"}";
+    }
+    out<<"],\"export_dll_name\":";
+    if(export_module.empty())out<<"null";else out<<quote(export_module);
+    out<<",\"export_addresses\":[";
+    for(size_t i=0;i<export_addresses.size();i++){
+      if(i)out<<",";
+      const auto& x=export_addresses[i];
+      out<<"{\"ordinal\":"<<x.ordinal<<",\"target_rva\":"<<x.target_rva
+         <<",\"forwarder\":";
+      if(x.forwarder.empty())out<<"null";else out<<quote(x.forwarder);
       out<<"}";
     }
     out<<"],\"runtime_functions\":[";

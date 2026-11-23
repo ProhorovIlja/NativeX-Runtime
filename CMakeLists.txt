@@ -217,6 +217,23 @@ endforeach()
 add_test(NAME native_asset_stream_exact_reads_and_errors COMMAND native_asset_stream_tests)
 set_tests_properties(native_asset_stream_exact_reads_and_errors PROPERTIES TIMEOUT 20)
 
+# Read-only, offline synthetic asset override planner. Never rewrites originals.
+# File/manifest compatibility with the actual game has not been tested.
+add_library(native_asset_overlay STATIC src/native_asset_overlay.cpp)
+target_include_directories(native_asset_overlay PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_asset_overlay PUBLIC cxx_std_17)
+add_executable(native_asset_overlay_tests fixtures/native_asset_overlay_tests.cpp)
+target_link_libraries(native_asset_overlay_tests PRIVATE native_asset_overlay native_asset_stream)
+foreach(target native_asset_overlay native_asset_overlay_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_readonly_asset_override_and_fallback COMMAND native_asset_overlay_tests)
+set_tests_properties(native_pc_readonly_asset_override_and_fallback PROPERTIES TIMEOUT 20)
+
 # Real D3D12 rasterization (original VS/PS) and CPU texture readback on WARP.
 # This does not exercise a window/swapchain Present or Xbox D3D12.X.
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)

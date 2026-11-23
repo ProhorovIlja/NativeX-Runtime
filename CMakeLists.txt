@@ -10,6 +10,14 @@ else()
 endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME pe32plus_readonly_fixture COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_pe_intake.py" "$<TARGET_FILE:pe_intake>")
+# Native Windows x64 import dependency planning: no guest execution/rebinding.
+# The synthetic PE is read by pe_intake, then mapped only through explicit host
+# export or native-adapter declarations. Missing and unsupported imports fail closed.
+add_test(NAME pe32plus_native_import_binding_plan_pipeline
+  COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/check_pe_binding_pipeline.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_native_import_binding_plan_pipeline PROPERTIES TIMEOUT 15)
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_executable(win_native_probe src/platform_probe.cpp)
   target_compile_features(win_native_probe PRIVATE cxx_std_17)

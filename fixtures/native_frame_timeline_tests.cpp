@@ -1,4 +1,5 @@
 #include "native_frame_timeline.hpp"
+#include <array>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -73,6 +74,72 @@ void strict_timestamp_bounds(){
     check(m.simulation.count==2 && m.simulation.maximum_ns==0 &&
           m.cpu_frame.maximum_ns==0,"same-timestamp metrics");
 }
+
+Phases present_at(std::uint64_t timestamp) {
+    // A source-built sample with 2 ms of CPU work, independent of the
+    // interval since the preceding Present return.
+    return {0,timestamp-2000000ull,timestamp-1500000ull,
+            timestamp-1000000ull,timestamp};
+}
+void present_return_cadence_and_30_60_120_budgets(){
+    Timeline t{};
+    std::uint64_t timestamp=10000000000ull;
+    check(t.record(present_at(timestamp)),"initial cadence frame");
+    constexpr std::array<std::uint64_t,6> gaps{{
+        16666667ull,16666667ull,33333334ull,
+        8333333ull,8333334ull,1000000000ull
+    }};
+    for(auto gap:gaps){
+        timestamp+=gap;
+        check(t.record(present_at(timestamp)),"valid cadence frame");
+    }
+    const auto m=t.summarize();
+    const auto& c=m.present_cadence;
+    check(c.interval.count==6 && c.interval.minimum_ns==8333333ull &&
+          c.interval.median_ns==16666667ull &&
+          c.interval.p95_ns==1000000000ull &&
+          c.interval.p99_ns==1000000000ull &&
+          c.interval.maximum_ns==1000000000ull,
+          "Present-return interval quantiles changed");
+    check(c.missed_30hz==1 && c.missed_60hz==2 &&
+          c.missed_120hz==4 && c.invalid_intervals==0,
+          "30/60/120 fps budget deadline rounding or miss count wrong");
+    check(m.cpu_frame.count==7 && m.cpu_frame.p99_ns==2000000ull,
+          "Present cadence incorrectly replaces CPU phase duration");
+}
+void cadence_rejects_pauses_and_reverse_clock(){
+    Timeline t{};
+    check(t.record(present_at(10000000000ull)),"start");
+    check(t.record(present_at(10000000000ull)),"coincident return stamp");
+    check(t.record(present_at(9999000000ull)),"reordered return stamp");
+    check(t.record(present_at(80000000000ull)),"host suspension gap");
+    check(t.record(present_at(80016666667ull)),"new stable interval");
+    const auto c=t.summarize().present_cadence;
+    check(c.invalid_intervals==3 && c.interval.count==1 &&
+          c.interval.minimum_ns==16666667ull &&
+          c.missed_30hz==0 && c.missed_60hz==0 &&
+          c.missed_120hz==1,
+          "clock duplicates, backwards returns or 60s pause fabricated cadence");
+}
+void cadence_bounded_ring_and_empty(){
+    Timeline t{};
+    check(t.summarize().present_cadence.interval.count==0,
+          "empty timeline manufactured Present rate");
+    constexpr auto start=10000000000ull;
+    for(std::size_t i=0;i<260;i++){
+        const auto when=start+static_cast<std::uint64_t>(i)*20000000ull;
+        check(t.record(present_at(when)),"bounded cadence sample");
+    }
+    const auto m=t.summarize();
+    check(t.count()==Timeline::Capacity && m.overwritten==4 &&
+          m.present_cadence.interval.count==Timeline::Capacity-1u &&
+          m.present_cadence.interval.median_ns==20000000ull &&
+          m.present_cadence.interval.p99_ns==20000000ull &&
+          m.present_cadence.missed_30hz==0 &&
+          m.present_cadence.missed_60hz==Timeline::Capacity-1u &&
+          m.present_cadence.missed_120hz==Timeline::Capacity-1u,
+          "ring wrapped with incorrect software cadence pairs");
+}
 void native_monotonic_clock(){
     const std::uint64_t first=monotonic_ns();
     const std::uint64_t second=monotonic_ns();
@@ -83,11 +150,14 @@ int main(){
     try{
         empty_and_rejections();exact_quantiles();bounded_ring_and_no_input();
         strict_timestamp_bounds();native_monotonic_clock();
+        present_return_cadence_and_30_60_120_budgets();
+        cadence_rejects_pauses_and_reverse_clock();
+        cadence_bounded_ring_and_empty();
     }catch(const std::exception& ex){
         std::cerr<<"native frame timeline FAILED: "<<ex.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-frame-phase-percentiles\","
-             "\"scenarios\":5,"
+             "\"scenarios\":8,"
              "\"fixed_capacity\":"<<Timeline::Capacity<<","
              "\"windows_and_linux_clock\":true,"
              "\"p50_p95_p99_tested\":true,"

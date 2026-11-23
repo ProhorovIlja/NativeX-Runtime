@@ -1,5 +1,23 @@
 # Development state — 2026-11-23
 
+## Eighteenth pass: D3D12 WARP eight-mode BC7 differential (PR CI pending)
+
+- Source-built Windows D3D12 WARP test compares its actual compressed
+  `DXGI_FORMAT_BC7_UNORM` sampling, draw and 16x16 render-target readback
+  against the pinned CPU reference separately for each BC7 mode 0..7.
+  Eight new Windows tests use one synthetic block/mode and verify 256 GPU
+  pixels with the existing 2-unit RGBA tolerance, while preserving the old
+  independently generated BC7 mode6 and all existing BC1/BC3/BC4/BC5 tests.
+  [Verification limits](NATIVE_BC7_FULL_WARP_DIFFERENTIAL_2026-11-23.md).
+- The full BC7 CPU reference [PR #115](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/115)
+  completed successful Windows/Linux CI and merged as
+  `16b62e3ab84c5cbfb535247c454aa9e4fc21bf02`.
+- GPU WARP results are not the user's RTX 4070, Xbox/RAGE 9 GPU layout,
+  game boot, real-game frame or measured title FPS.
+
+No new scheduled tasks, recurring scans or background monitors were added.
+
+
 ## Seventeenth pass: full BC7 CPU reference (CI pending)
 
 - Integrated pinned [iOrange/bcdec](https://github.com/iOrange/bcdec)

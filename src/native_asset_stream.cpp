@@ -100,13 +100,13 @@ std::future<Result> Reader::submit(Request request) {
     if(request.length>MaxRequestBytes ||
        static_cast<std::size_t>(request.priority)>2u)
         return immediate(Status::InvalidRange);
+    const auto lane=static_cast<std::size_t>(request.priority);
     std::packaged_task<Result()> task([r=std::move(request)]{return read_exact(r);});
     auto response=task.get_future();
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if(stopping_)return immediate(Status::Stopped);
         if(pending_count_>=max_queued_)return immediate(Status::QueueFull);
-        const auto lane=static_cast<std::size_t>(request.priority);
         pending_[lane].push_back(std::move(task));
         ++pending_count_;
     }

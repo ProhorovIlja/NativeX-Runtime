@@ -87,11 +87,14 @@ def main(exe):
         assert info['import_modules']==['KERNEL32.dll'],info
         assert info['delay_import_modules']==['USER32.dll'],info
         assert info['import_symbols']==[
-            {'module':'KERNEL32.dll','name':'GetCurrentProcessId','ordinal':None},
-            {'module':'KERNEL32.dll','name':None,'ordinal':123}
+            {'module':'KERNEL32.dll','name':'GetCurrentProcessId','ordinal':None,
+             'lookup_rva':0x1250,'iat_rva':0x1250,'name_hint':0x2a},
+            {'module':'KERNEL32.dll','name':None,'ordinal':123,
+             'lookup_rva':0x1258,'iat_rva':0x1258,'name_hint':None}
         ],info
         assert info['delay_import_symbols']==[
-            {'module':'USER32.dll','name':'MessageBoxW','ordinal':None}
+            {'module':'USER32.dll','name':'MessageBoxW','ordinal':None,
+             'lookup_rva':0x12A0,'iat_rva':None,'name_hint':3}
         ],info
         assert info['runtime_functions']==[
             {'begin_rva':0x1000,'end_rva':0x1020,'unwind_rva':0x1350},
@@ -144,6 +147,7 @@ def main(exe):
                                       (0x520+16, 0xffffffff), # out-of-image function
                                       (0x280+4, 0xffffffff),
                                       (0x450, 0xfffffffe), # invalid import name RVA
+                                      (0x200+16, 0xfffffff8), # overflow in second IAT slot
                                       (0x450+4, 0x00000001), # invalid 64-bit name high word
                                       (0x458+4, 0xc0000000), # ordinal has forbidden flag bits
                                       (0x4a0, 0xfffffffe), # bad delay import INT name
@@ -159,6 +163,17 @@ def main(exe):
             bad.write_bytes(corrupted)
             run=subprocess.run([exe,str(bad)],capture_output=True,text=True)
             assert run.returncode!=0 and 'pe_intake:' in run.stderr,(raw_offset,run.stdout,run.stderr)
+        # Missing FirstThunk is recorded as unknown rather than inventing
+        # a writable IAT slot; name lookup remains available read-only.
+        no_iat=bytearray(p.read_bytes())
+        struct.pack_into('<I',no_iat,0x200+16,0)
+        no_iat_path=d/'missing-first-thunk.exe'
+        no_iat_path.write_bytes(no_iat)
+        report=json.loads(subprocess.run([exe,str(no_iat_path)],
+                         capture_output=True,text=True,check=True).stdout)
+        assert all(x['iat_rva'] is None for x in report['import_symbols'])
+        assert report['import_symbols'][0]['lookup_rva']==0x1250
+
         # V1 metadata failures are rejected without loading the executable.
         for offset,value in (
             (0x550,0x00), # invalid version zero

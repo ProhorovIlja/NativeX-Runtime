@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.pe_native_import_binding_plan import build_plan
 from tools.pe_native_export_verify import verify_plan
+from tools.pe_native_package_preflight import build_preflight
 from check_pe_intake import fixture
 
 
@@ -86,10 +87,33 @@ def main(executable):
         assert resolved["checks"][0]["status"] == "present-forwarded", resolved
         assert [x["module"] for x in resolved["checks"][0]["chain"]] == [
             "synthetic.dll", "kernel32.dll"], resolved
+        # Synthetic 2-image PE package startup dependency preflight.
+        # A second copy of our fixture is changed to import `helper.dll`
+        # instead of KERNEL32.dll; there is no mapping or guest execution.
+        title_path = Path(directory) / "native synthetic title.exe"
+        title_bytes = bytearray(path.read_bytes())
+        title_bytes[0x240:0x240+13] = b"helper.dll\x00".ljust(13, b"\x00")
+        title_path.write_bytes(title_bytes)
+        title = json.loads(subprocess.run([executable, str(title_path)],
+            capture_output=True, text=True, check=True).stdout)
+        assert title["import_modules"] == ["helper.dll"], title
+        package = {"schema": "scarlett-native-pe-package/v1",
+                   "entry": "title.exe", "images": [
+                       {"name": "title.exe", "pe": title},
+                       {"name": "helper.dll", "pe": inventory}],
+                   "external_modules": ["KERNEL32.dll"]}
+        preflight = build_preflight(package)
+        assert preflight["immediate_dependency_order"] == ["helper.dll", "title.exe"], preflight
+        assert preflight["immediate_names_resolved"] and not preflight["all_names_resolved"]
+        assert preflight["missing_delayed_modules"] == ["user32.dll"]
+        package["images"].pop()
+        incomplete = build_preflight(package)
+        assert not incomplete["immediate_names_resolved"]
+        assert incomplete["missing_immediate_modules"] == ["helper.dll"]
         # The original input PE and the synthetic host have not been patched.
         assert path.exists()  # Inventory and binding plan never alter input.
         assert path.read_bytes()[:2] == b"MZ"
-    print("native Win64 PE import->binding->export+forwarder: PASS (synthetic only)")
+    print("native Win64 PE import->binding->export+package graph: PASS (synthetic only)")
 
 
 if __name__ == "__main__":

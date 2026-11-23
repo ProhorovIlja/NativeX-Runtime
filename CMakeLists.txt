@@ -166,6 +166,23 @@ add_test(NAME native_pc_feature_policy_scenarios COMMAND pc_feature_policy_tests
 add_test(NAME native_pc_host_inventory_selftest COMMAND native_pc_host_inventory --self-test)
 add_test(NAME native_pc_host_inventory_smoke COMMAND native_pc_host_inventory)
 
+# Original source-only 1080p native 60 FPS *goal* and adjustable quality
+# settings policy; no game hooks, frame-generation provider or game assets.
+add_library(native_1080p60_profile STATIC src/native_1080p60_profile.cpp)
+target_link_libraries(native_1080p60_profile PUBLIC pc_feature_policy)
+target_include_directories(native_1080p60_profile PUBLIC "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_1080p60_profile PUBLIC cxx_std_17)
+add_executable(native_1080p60_profile_tests fixtures/native_1080p60_profile_tests.cpp)
+target_link_libraries(native_1080p60_profile_tests PRIVATE native_1080p60_profile)
+foreach(target native_1080p60_profile native_1080p60_profile_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_pc_1080p60_no_fg_quality_policy COMMAND native_1080p60_profile_tests)
+
 # Native host x86-64 ISA checks. The baseline library never executes advanced
 # SIMD instructions; AVX2 eligibility requires CPUID and OS XCR0 YMM state.
 add_library(native_cpu_dispatch STATIC src/native_cpu_dispatch.cpp)

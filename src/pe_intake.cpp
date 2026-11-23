@@ -222,7 +222,7 @@ class PE {
     out<<'"';return out.str();
   }
 public:
-  explicit PE(const char* path){
+  explicit PE(const char* path,bool compact=false){
     std::ifstream f(path,std::ios::binary|std::ios::ate);
     if(!f)throw std::runtime_error("file open failed");
     auto n=f.tellg(); if(n<0||n>512LL*1024*1024)throw std::runtime_error("file outside 512 MiB limit");
@@ -326,7 +326,7 @@ public:
     const auto exception=dir(3);
     if(exception.first || exception.second) {
       if(!exception.first || !exception.second || exception.second%12u ||
-         exception.second/12u>65536u)
+         exception.second/12u>(compact?1000000u:65536u))
         throw std::runtime_error("invalid AMD64 exception directory size");
       const uint32_t image_size=u32(opt+56);
       const auto first=rva(exception.first,exception.second);
@@ -424,7 +424,7 @@ public:
       if(!terminated)throw std::runtime_error("unterminated delay imports");
     }
   }
-  std::string json() const{
+  std::string json(bool compact=false) const{
     std::ostringstream out;
     out<<"{\"kind\":\"pe32plus-metadata\",\"machine\":\"AMD64\",\"sections\":"<<sections.size()
        <<",\"entry_rva\":"<<entry<<",\"image_base\":"<<image_base<<",\"import_modules\":[";
@@ -479,14 +479,14 @@ public:
       out<<"}";
     }
     out<<"],\"runtime_functions\":[";
-    for(size_t i=0;i<runtime_functions.size();i++){
+    if(!compact)for(size_t i=0;i<runtime_functions.size();i++){
       if(i)out<<",";
       const auto& fn=runtime_functions[i];
       out<<"{\"begin_rva\":"<<fn.begin<<",\"end_rva\":"<<fn.end
          <<",\"unwind_rva\":"<<fn.unwind<<"}";
     }
     out<<"],\"unwind_infos\":[";
-    for(size_t i=0;i<unwind_summaries.size();i++){
+    if(!compact)for(size_t i=0;i<unwind_summaries.size();i++){
       if(i)out<<",";
       const auto& x=unwind_summaries[i];
       out<<"{\"unwind_rva\":"<<x.rva<<",\"version\":"<<x.version
@@ -499,7 +499,35 @@ public:
       if(x.handler)out<<x.handler;else out<<"null";
       out<<"}";
     }
-    out<<"],\"unwind_codes_executed\":false";
+    if(compact){
+      unsigned versions[8]={},flags[32]={};
+      std::uint64_t decoded=0, chained=0, max_stack=0;
+      for(const auto& x:unwind_summaries){
+        if(x.version<8)++versions[x.version];
+        if(x.flags<32)++flags[x.flags];
+        if(x.decoded)++decoded;
+        if(x.chain)++chained;
+        if(x.stack_bytes>max_stack)max_stack=x.stack_bytes;
+      }
+      out<<"],\"compact_pdata_summary\":true,\"runtime_function_count\":"
+         <<runtime_functions.size()<<",\"unwind_info_count\":"<<unwind_summaries.size()
+         <<",\"decoded_unwind_count\":"<<decoded<<",\"chained_unwind_count\":"<<chained
+         <<",\"max_unwind_stack_bytes\":"<<max_stack;
+      out<<",\"unwind_version_counts\":{";
+      bool first=true;
+      for(unsigned i=0;i<8;i++)if(versions[i]){
+        out<<(first?"":",")<<quote(std::to_string(i))<<":"<<versions[i];first=false;
+      }
+      out<<"},\"unwind_flag_counts\":{";
+      first=true;
+      for(unsigned i=0;i<32;i++)if(flags[i]){
+        out<<(first?"":",")<<quote(std::to_string(i))<<":"<<flags[i];first=false;
+      }
+      out<<"}";
+    }else{
+      out<<"]";
+    }
+    out<<",\"unwind_codes_executed\":false";
     out<<",\"unwind_codes_decoded\":false";
     out<<",\"tls_template_rva\":";
     if(tls_template_rva)out<<tls_template_rva;else out<<"null";
@@ -519,7 +547,10 @@ public:
   }
 };
 int main(int argc,char** argv){
-  if(argc!=2){std::cerr<<"usage: pe_intake <PE32+ file>\n";return 2;}
-  try{std::cout<<PE(argv[1]).json();return 0;}
+  const bool compact=argc==3 && std::string(argv[2])=="--compact";
+  if((argc!=2 && !compact)){
+    std::cerr<<"usage: pe_intake <PE32+ file> [--compact]\n";return 2;
+  }
+  try{std::cout<<PE(argv[1],compact).json(compact);return 0;}
   catch(const std::exception& e){std::cerr<<"pe_intake: "<<e.what()<<'\n';return 2;}
 }

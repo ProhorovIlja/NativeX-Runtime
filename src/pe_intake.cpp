@@ -16,7 +16,8 @@ class PE {
   std::vector<Section> sections;
   std::vector<std::string> names, imports, delay_imports;
   struct Export { std::string name; uint32_t ordinal; std::string forwarder; };
-  struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal; };
+  struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal;
+                        uint32_t lookup_rva, iat_rva; uint16_t hint; };
   std::vector<Export> exports;
   std::vector<ImportSymbol> import_symbols, delay_import_symbols;
   struct RuntimeFunction { uint32_t begin, end, unwind; };
@@ -67,12 +68,16 @@ class PE {
   }
   // Inspect PE32+ IMAGE_THUNK_DATA64 without resolving or executing imports.
   // 8-byte entries, strict ordinal flag, bounded per descriptor and globally.
-  void inspect_thunks(uint32_t thunk_rva,const std::string& dll,
+  void inspect_thunks(uint32_t thunk_rva,uint32_t first_thunk_rva,
+                      const std::string& dll,
                       std::vector<ImportSymbol>& destination) const {
     if(!thunk_rva)return; // Import descriptors without INT/IAT are preserved as modules.
     for(uint64_t i=0;i<=8192;i++){
       const uint64_t address=uint64_t(thunk_rva)+i*8u;
-      if(address>UINT32_MAX)throw std::runtime_error("import thunk RVA overflow");
+      const uint64_t iat_address=first_thunk_rva
+        ?uint64_t(first_thunk_rva)+i*8u:0u;
+      if(address>UINT32_MAX || iat_address>UINT32_MAX)
+        throw std::runtime_error("import lookup or IAT slot RVA overflow");
       const uint64_t thunk=u64(rva(uint32_t(address),8));
       if(!thunk)return;
       if(i==8192||destination.size()>=32768)
@@ -81,14 +86,17 @@ class PE {
         // IMAGE_ORDINAL_FLAG64 set; all bits except low 16 must be zero.
         if(thunk&0x7fffffffffff0000ull)
           throw std::runtime_error("invalid PE import ordinal thunk");
-        destination.push_back({dll,std::string{},uint32_t(thunk&0xffffu),true});
+        destination.push_back({dll,std::string{},uint32_t(thunk&0xffffu),true,
+                               uint32_t(address),uint32_t(iat_address),0u});
       }else{
         if(thunk>UINT32_MAX-2u)
           throw std::runtime_error("invalid PE import-by-name RVA");
         const uint32_t name_rva=uint32_t(thunk);
         // IMAGE_IMPORT_BY_NAME = 2-byte hint followed by ASCII NUL string.
         rva(name_rva,2);
-        destination.push_back({dll,module(name_rva+2u),0u,false});
+        destination.push_back({dll,module(name_rva+2u),0u,false,
+                               uint32_t(address),uint32_t(iat_address),
+                               u16(rva(name_rva,2))});
       }
     }
     throw std::runtime_error("unterminated PE import thunk table");
@@ -259,7 +267,7 @@ public:
           imports.push_back(dll);
           // OriginalFirstThunk is the lookup table; FirstThunk is fallback.
           const uint32_t lookup=u32(p)?u32(p):u32(p+16);
-          inspect_thunks(lookup,dll,import_symbols);
+          inspect_thunks(lookup,u32(p+16),dll,import_symbols);
         }
         if(!done)throw std::runtime_error("unterminated import table");
       }
@@ -363,7 +371,7 @@ public:
         delay_imports.push_back(dll);
         // IMAGE_DELAYLOAD_DESCRIPTOR pINT (offset 16), IAT (offset 12) fallback.
         const uint32_t lookup=u32(pos+16)?u32(pos+16):u32(pos+12);
-        inspect_thunks(lookup,dll,delay_import_symbols);
+        inspect_thunks(lookup,u32(pos+12),dll,delay_import_symbols);
       }
       if(!terminated)throw std::runtime_error("unterminated delay imports");
     }
@@ -383,6 +391,10 @@ public:
       if(x.by_ordinal)out<<"null";else out<<quote(x.name);
       out<<",\"ordinal\":";
       if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<",\"lookup_rva\":"<<x.lookup_rva<<",\"iat_rva\":";
+      if(x.iat_rva)out<<x.iat_rva;else out<<"null";
+      out<<",\"name_hint\":";
+      if(x.by_ordinal)out<<"null";else out<<x.hint;
       out<<"}";
     }
     out<<"],\"delay_import_symbols\":[";
@@ -393,6 +405,10 @@ public:
       if(x.by_ordinal)out<<"null";else out<<quote(x.name);
       out<<",\"ordinal\":";
       if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<",\"lookup_rva\":"<<x.lookup_rva<<",\"iat_rva\":";
+      if(x.iat_rva)out<<x.iat_rva;else out<<"null";
+      out<<",\"name_hint\":";
+      if(x.by_ordinal)out<<"null";else out<<x.hint;
       out<<"}";
     }
     out<<"],\"exports\":[";

@@ -521,11 +521,20 @@ foreach(target native_nv12_bgra native_nv12_bgra_tests)
 endforeach()
 add_test(NAME native_pc_nv12_bgra_surface_conversion COMMAND native_nv12_bgra_tests)
 
+# Pinned dual-licensed MIT bcdec v0.985: full BC7 CPU *reference* only.
+# Isolated vendor compilation preserves third-party source and diagnostics.
+add_library(native_bcdec_vendor STATIC src/bcdec_implementation.cpp)
+target_include_directories(native_bcdec_vendor PUBLIC
+  "${CMAKE_SOURCE_DIR}/third_party/iOrange-bcdec")
+target_compile_features(native_bcdec_vendor PUBLIC cxx_std_17)
+
 # Native Windows/Linux original BC1 and BC3 CPU compressed-block texture reference.
 # Linear block raster with arbitrary rectangular dimensions; not Xbox tile swizzle.
 add_library(native_bc_texture STATIC src/native_bc_texture.cpp)
 target_include_directories(native_bc_texture PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_compile_features(native_bc_texture PUBLIC cxx_std_17)
+
+target_link_libraries(native_bc_texture PUBLIC native_bcdec_vendor)
 add_executable(native_bc_texture_tests fixtures/native_bc_texture_tests.cpp)
 target_link_libraries(native_bc_texture_tests PRIVATE native_bc_texture)
 foreach(target native_bc_texture native_bc_texture_tests)
@@ -560,6 +569,19 @@ endforeach()
 add_test(NAME native_pc_asset_stream_bc_texture_publication
   COMMAND native_asset_texture_publish_tests)
 set_tests_properties(native_pc_asset_stream_bc_texture_publication PROPERTIES TIMEOUT 25)
+
+# Full BC7 (all eight modes) CPU path, pinned iOrange reference with
+# existing strict Reader -> RGBA8 publication. Not Xbox texture tiling.
+add_executable(native_bc7_all_tests fixtures/native_bc7_all_tests.cpp)
+target_link_libraries(native_bc7_all_tests PRIVATE native_asset_texture_publish)
+target_compile_features(native_bc7_all_tests PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(native_bc7_all_tests PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_bc7_all_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_pc_bc7_all_cpu_modes_and_atomicity COMMAND native_bc7_all_tests)
+set_tests_properties(native_pc_bc7_all_cpu_modes_and_atomicity PROPERTIES TIMEOUT 25)
 
 # Original Win32 D3D12 WARP compressed BC1/BC3 real texture/SRV shader Load
 # and exact 16x16 RGBA readback versus our source-tested native CPU decoder.

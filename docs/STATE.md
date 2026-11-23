@@ -1,5 +1,14 @@
 # Development state — 2026-11-23
 
+## Fifteenth pass: source-built streaming-to-texture handoff and broader Scarlett ecosystem
+
+- **Native Reader → compressed BC image all-or-nothing handoff:** new [source implementation](../src/native_asset_texture_publish.cpp) and [five scenario groups](../fixtures/native_asset_texture_publish_tests.cpp) combine our bounded native asynchronous asset IO with CPU BC1/BC3/BC4/BC5/BC7-mode6 decoder. Completed synthetic BC1 compressed records yield full RGBA8 images; truncated second record, invalid sizes/modes/strides/checksum or cancellation yield **no published pixels**. Constrain output to 32 MiB and input to Reader's 4 MiB. This is not a real game texture/BCPack decoder, GPU residency or actual GTA VI render. [Implementation boundaries](NATIVE_BC_STREAM_PUBLICATION_2026-11-23.md). Windows/Linux CI pending.
+- **Further direct upstream inspection (23 Nov 2026):** `californiaAlmonds/OpenScarlett` MIT head `0a13a0c09ab5325e1a3aed899b4a304f084808b3` reports Xbox GDK samples and author-tested retail Minecraft Preview gameplay; `jadeowaowa/scarlett-layer` Apache-2.0 head `7a7a0920c316e11a62be91c2306f40a15b9446df` reports unpacked Terraria reaches menus/audio but not gameplay; `ivall/xcl` GPL-2.0 head `f311ca5b969ce2e7303495ccd12c1eed74668383` claims separate playable retail-title compatibility; `ThatRecompDev/five-star-recomp` GPL-3.0 head `255e6b7bd80bc8f8102c76b479691e1f82ff0a13` reports game-specific shader/loader work but no GTA VI boot; `Ahmet-Dedeler/rage9-re` `ddf30a3d1493ab2918cbb2484d9e089d678feb94` documents script/animation data extraction. These are **author claims and public source observations, not reproductions on our machine or code integrations**; licensing must be respected.
+- **Critical gate unchanged:** no verified executable or real GTA VI game startup/frames, hence no meaningful 30/60 FPS proof or deep RAGE 9 game state API yet. Continue native Windows single-player correctness, GDK/D3D12/graphics/asset streaming before any co-op features.
+
+No scheduled tasks, periodic scans, notification automations, background monitors, or unrelated services created.
+
+
 ## Fourteenth pass: prioritized portable asset streaming and targeted upstream review
 
 - **Native source-only asset Reader priority scheduling, pending CI:** three independent FIFO lanes with a globally bounded queue, 4/2/1 weighted dispatch across frame-critical/normal/background and guaranteed background progress under continuous high-priority demand. Existing four-field `Request` aggregates, byte-accurate reads and cancellation are retained. Pure scheduling tests cover all-ready proportional service and empty/single lanes; original read tests and newly added real worker file reads cover priority requests. [Implementation contract](NATIVE_ASSET_PRIORITY_STREAMING_2026-11-23.md). No confirmed real-game FPS/DirectStorage result.

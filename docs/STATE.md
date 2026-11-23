@@ -1,5 +1,14 @@
 # Development state — 2026-11-23
 
+## Twenty-first pass (feature branch): real Xbox-format PE static intake, compact large-.pdata diagnostics
+
+- A user-provided **120,181,760-byte PE32+ AMD64 executable** was obtained from their connected Drive and inspected **read-only** in the local sandbox. SHA-256 was compared with published reports, but publisher provenance, file safety, game version and title compatibility remain **unverified**. **No binary or copyrighted game data is committed to this repository.**
+- The actual PE contains **68 import modules, 587 import symbols** (24 by ordinal), **299,257 AMD64 runtime-function records**, **2 TLS callbacks** and **2,763 relocation blocks**. Import names include Xbox-specific `xmem.dll`, `d3d12_xs.dll`, `chad.dll`, `XboxBvhBuilder.dll`, `xg_xs.dll`, `Bink2Scarlett.dll` and GDK networking. Read-only metadata contains GRDK 2504/2510/2604 references; a public package version string alone does not validate the executable.
+- **Reproduced and repaired a concrete scalability failure:** existing `pe_intake` rejected the image because its earlier exception table cap was **65,536** entries. An explicit `--compact` mode accepts up to **1,000,000** checked entries while retaining detailed import/export/relocation/TLS data and aggregating unwind metadata instead of writing a roughly 70 MiB JSON report. The original noncompact strict limit stays unchanged.
+- **On-demand local verification:** strict GNU C++17 build, original synthetic PE parser fixture, a newly generated **65,537-entry** .pdata test, combined PE import/export/package pipeline, LLVM-linked Windows x64 DLL export test and **23 Python unit tests** passed. The new mode produced **87,725 bytes** of valid JSON for the user-provided PE; the game binary was **not** executed. MSVC, real GDK DLL bindings, graphics and game startup remain unverified.
+- [Source-only technical notes](REAL_PE32PLUS_LARGE_IMAGE_ANALYSIS_2026-11-23.md). All new code/tests remain in `feat/native-pe-import-binding-dry-run-20261123`; no PR, main merge, CI invocation, job scheduling or automation setup was performed.
+
+
 ## Twentieth pass (feature branch only): PE exports + multi-image native package preflight
 
 - Read-only C++17 `pe_intake` now records all nonzero PE export address entries including ordinal-only slots and internal DLL export names. It rejects named exports with empty targets, image-overrun EAT entries, unterminated forwarders beyond the export directory, and out-of-image IAT slots.

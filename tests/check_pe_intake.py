@@ -1,10 +1,11 @@
-"""Synthetic, non-executable PE32+ fixture. No proprietary content."""
+﻿"""Synthetic, non-executable PE32+ fixture. No proprietary content."""
 import json
 from pathlib import Path
 import struct
 import subprocess
 import sys
 import tempfile
+
 
 def fixture(path):
     data=bytearray(0x900)
@@ -77,6 +78,7 @@ def fixture(path):
     struct.pack_into('<I',data,0x568,0x1090)
     path.write_bytes(data)
 
+
 def main(exe):
     with tempfile.TemporaryDirectory() as temp:
         d=Path(temp); p=d/'fixture with spaces.exe';fixture(p)
@@ -123,6 +125,39 @@ def main(exe):
             {'name':'ScarlettMultiply','ordinal':6,'forwarder':None},
             {'name':'AliasForward','ordinal':7,'forwarder':'KERNEL32.Sleep'}
         ],info
+        assert info['export_dll_name']=='synthetic.dll',info
+        assert info['export_addresses']==[
+            {'ordinal':5,'target_rva':0x1300,'forwarder':None},
+            {'ordinal':6,'target_rva':0x1310,'forwarder':None},
+            {'ordinal':7,'target_rva':0x11EE,'forwarder':'KERNEL32.Sleep'}
+        ],info
+        # Ordinal-only export is in the EAT despite having no name pointer.
+        unnamed=bytearray(p.read_bytes())
+        struct.pack_into('<I',unnamed,0x340+24,2)
+        unnamed_path=d/'ordinal-only-export.exe'
+        unnamed_path.write_bytes(unnamed)
+        ordinal_report=json.loads(subprocess.run([exe,str(unnamed_path)],
+            capture_output=True,text=True,check=True).stdout)
+        assert len(ordinal_report['exports'])==2
+        assert len(ordinal_report['export_addresses'])==3
+        assert ordinal_report['export_addresses'][-1]['ordinal']==7
+        # Export forwarders may not borrow a terminator from a later PE
+        # directory/section even when the entire file is otherwise mapped.
+        bad_forward=bytearray(p.read_bytes())
+        bad_forward[0x3EE:0x400]=b'X'*0x12
+        bad_forward_path=d/'unterminated-forwarder.exe'
+        bad_forward_path.write_bytes(bad_forward)
+        failed=subprocess.run([exe,str(bad_forward_path)],
+                              capture_output=True,text=True)
+        assert failed.returncode!=0 and 'forwarder' in failed.stderr,failed.stderr
+        # A named export must not point at an empty or out-of-image EAT RVA.
+        for address in (0,0x2000,0xffffffff):
+            bad_export=bytearray(p.read_bytes())
+            struct.pack_into('<I',bad_export,0x380,address)
+            filename=d/'invalid-export-address.exe'
+            filename.write_bytes(bad_export)
+            invalid=subprocess.run([exe,str(filename)],capture_output=True,text=True)
+            assert invalid.returncode!=0 and 'pe_intake:' in invalid.stderr,(address,invalid.stderr)
         assert info['executable_tested'] is False,info
         for data in (p.read_bytes()[:160],b'not a PE file'):
             bad=d/'bad.exe';bad.write_bytes(data)
@@ -174,6 +209,7 @@ def main(exe):
         assert all(x['iat_rva'] is None for x in report['import_symbols'])
         assert report['import_symbols'][0]['lookup_rva']==0x1250
 
+
         # V1 metadata failures are rejected without loading the executable.
         for offset,value in (
             (0x550,0x00), # invalid version zero
@@ -222,6 +258,7 @@ def main(exe):
             result=subprocess.run([exe,str(bad_path)],capture_output=True,text=True)
             assert result.returncode!=0 and 'pe_intake:' in result.stderr,(bad_size,result.stderr)
 
+
         # The compact two-slot variant stores the size divided by 8.
         scaled=bytearray(p.read_bytes())
         scaled[0x550:0x558]=bytes((1,4,2,0,4,0x01,17,0))
@@ -234,6 +271,7 @@ def main(exe):
         scaled_path.write_bytes(scaled)
         rejected=subprocess.run([exe,str(scaled_path)],capture_output=True,text=True)
         assert rejected.returncode!=0 and 'pe_intake:' in rejected.stderr
+
 
         # Common CHAININFO flag remains observable in opaque V2 and V3.
         for version in (2,3):

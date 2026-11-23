@@ -1,0 +1,5 @@
+LIBRARY host_a
+EXPORTS
+  NativeCall @5
+  ForwardNamed=host_b.Ping @6
+  ForwardOrdinal=host_b.#2 @7

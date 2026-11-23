@@ -4,6 +4,12 @@
 
 Scarlett Windows Compat develops small, reproducible **clean-room test tools** for understanding how Xbox Series Game Core/GDK software interacts with desktop Windows x64. On a PC, compatible x86-64 instructions can execute directly; Xbox-specific services, memory and GPU semantics still require careful adaptation. The research is **native-first** rather than CPU-instruction emulation.
 
+## Intended final product: GTA6.exe for Windows, not an Xbox emulator
+
+**User-facing target:** a native Windows x64 `GTA6.exe` launched directly from Explorer, with an *optional* native `GTA6Launcher.exe` for user-invoked game-directory selection, graphics/input settings, manual update checks and Play. Game x64 code runs directly on the CPU; Windows-native modules handle the system, graphics, memory, audio and filesystem differences. Static import rebinding and/or selective native recompilation may be required, based on the actual game executable. No required emulator UI, virtual machine, mandatory launcher, automatic updater or account for offline single-player.
+
+**This is a target, not an existing build.** Real game EXE/asset integration, RAGE 9 startup, verified game frames, expanded in-game settings and autosave are not implemented. Synthetic Xbox/Windows interoperability tools below are supporting infrastructure, not a different product goal. [Technical product contract and gates](docs/NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md).
+
 ## What is here
 
 **Verified native Windows/Linux progress — sixth pass (2026-11-22):** original [PE32+ V1 xdata unwind metadata inventory](docs/PE32_AMD64_XDATA_V1_2026-11-22.md) ([PR #82](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/82)); [fail-closed two-slot save recovery when either generation is unreadable](docs/NATIVE_PC_SAVE_RECOVERY_2026-11-22.md) ([PR #83](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/83)); and [stateless native gamepad radial deadzones, curves and trigger-floor processing](docs/NATIVE_PC_GAMEPAD_ANALOG_2026-11-22.md) ([PR #84](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/84)). Their combined Windows/Linux source builds and tests passed ([Windows 44 CTests with two capability skips; Linux 18/18](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44974336012)). **Not** a title boot, physical controller/haptic acceptance, or actual GTA VI autosave. [Complete evidence and remaining gates](docs/NATIVE_PE_SAVE_INPUT_SIXTH_PASS_2026-11-22.md).

@@ -1,4 +1,14 @@
-# Development state — 2026-11-22
+# Development state — 2026-11-23
+
+## Ninth-pass evidence: measure rather than guess GTA VI PC minimums
+
+- **Native Present-return frame cadence diagnostics:** [PR #98](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/98), [Windows/Linux CI 45157495207](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/45157495207). The source-built fixed-capacity `native_frame_timeline` adds consecutive positive `Present`-return interval minimum/median/p95/p99 and misses of exact nanosecond-rounded 30/60/120 Hz budgets; invalid, reversed and >60-second discontinuities are excluded. Three new deterministic scenarios (5→8); actual Windows fixture **passed** alongside rest of the 48-test suite (46 executed, 2 hardware/endpoint skips). **This is a software frame-timing proxy, NOT physical displayed FPS, GTA VI throughput, a Ryzen CPU minimum, GPU workload timing or input-to-photon latency.** [Engineering contract](NATIVE_PC_PRESENT_CADENCE_BUDGET_2026-11-23.md).
+- **Direct-source public GTA VI upstream review:** [PR #99](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/99), [pinned evidence and adoption gates](GTA_VI_PUBLIC_UPSTREAM_NATIVE_PERF_2026-11-23.md): Leonida, ReCity, bcpack-rs, TTPF viewer, rpf9, SixNG, 6to5m and upstream index/compatibility. Strongest author-reported progress includes shader corpus SPIR-V validation and archive/texture research, **not an independently demonstrated GTA VI gameplay frame or PC launch**. Main blocker is more than a missing EXE: Xbox GDK ABI, root signatures, PSOs, draws, Present, GPU wave semantics, resource tiling, game-specific initialization remain. GPL-3.0 code was not copied into this repository; permissive candidates need separately validated clean adapters and attribution.
+- **No official GTA VI PC system requirements verified.** A `Ryzen 5 5600 minimum for 30 FPS` or a promise of `60 FPS on all older CPUs` is speculative until profiling an actual build on physical hardware. Upscaling and generated frames cannot replace expensive CPU simulation. The reported 209 GB Xbox build version 1.0.2.1 without an executable and Nov 23 EXE promise are **unverified leak claims**; neither game material nor keys were obtained or redistributed.
+
+**Hard acceptance gate unchanged:** a lawful available game executable/asset copy and a reproducible first real game title boot, stable rendered frame, GPU profiling, input/audio and data validation. The project runs only public source-built fixtures today. Windows native x64 first; Proton may run Windows PE under Linux; Linux native ELF title remains separate work. No scheduled or recurring tasks or background monitoring created.
+
+
 
 ## Eighth-pass verified native mouse and BC7 format gates
 

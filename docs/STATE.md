@@ -1,5 +1,12 @@
 # Development state — 2026-11-23
 
+## Shipping-product correction: GTA6.exe native Windows x64
+
+- **User-required deliverable:** a directly launched native Windows `GTA6.exe`, optionally started by `GTA6Launcher.exe` offering user-invoked folder discovery, manual update check, native PC settings, then Play. The launcher is **not** an emulation environment, not mandatory, and creates no unattended updating/scheduling. Native x86-64 machine code should execute on the physical CPU, with Xbox GDK/D3D12.X imports and semantics transformed or implemented inside Windows-native game modules. There is no way to promise an API-translation-free or completely source-rebuilt binary without inspecting the original game executable.
+- **Engineering choice remains open:** static PE rebinding / selective ahead-of-time native compilation, embedded Windows-native OS/GPU adapters and possible local DLLs are implementation mechanisms, not an Xbox emulator shipping product. Existing separate PE/D3D12/input/memory/audio/asset fixtures support this goal but do **not** constitute a bootable GTA VI Windows EXE.
+- **Acceptance:** direct Explorer double-click starts real game menu/world/missions with real hardware D3D12, input, sound, save/reload and stable performance before optional launcher or quality-of-life mods. [Full architecture, launcher behavior and real-game gates](NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md).
+
+
 ## Fifteenth pass: source-built streaming-to-texture handoff and broader Scarlett ecosystem
 
 - **Native Reader → compressed BC image all-or-nothing handoff:** new [source implementation](../src/native_asset_texture_publish.cpp) and [five scenario groups](../fixtures/native_asset_texture_publish_tests.cpp) combine our bounded native asynchronous asset IO with CPU BC1/BC3/BC4/BC5/BC7-mode6 decoder. Completed synthetic BC1 compressed records yield full RGBA8 images; truncated second record, invalid sizes/modes/strides/checksum or cancellation yield **no published pixels**. Constrain output to 32 MiB and input to Reader's 4 MiB. This is not a real game texture/BCPack decoder, GPU residency or actual GTA VI render. [Implementation boundaries](NATIVE_BC_STREAM_PUBLICATION_2026-11-23.md). Windows/Linux CI pending.

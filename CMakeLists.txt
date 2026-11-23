@@ -617,7 +617,7 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     COMMAND d3d12_warp_bc_texture bc7-4)
   add_test(NAME native_win_d3d12_bc7_all_mode5_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-5)
-  add_test(NAME native_win_d3d12_bc7_mode6_gpu_cpu_differential
+  add_test(NAME native_win_d3d12_bc7_all_mode6_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-6)
   add_test(NAME native_win_d3d12_bc7_all_mode7_gpu_cpu_differential
     COMMAND d3d12_warp_bc_texture bc7-7)
@@ -625,7 +625,7 @@ if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
     native_win_d3d12_bc3_gpu_cpu_differential
     native_win_d3d12_bc4_gpu_cpu_differential
     native_win_d3d12_bc5_gpu_cpu_differential
-    native_win_d3d12_bc7_all_mode6_gpu_cpu_differential
+    native_win_d3d12_bc7_mode6_gpu_cpu_differential
     native_win_d3d12_bc7_all_mode0_gpu_cpu_differential
     native_win_d3d12_bc7_all_mode1_gpu_cpu_differential
     native_win_d3d12_bc7_all_mode2_gpu_cpu_differential

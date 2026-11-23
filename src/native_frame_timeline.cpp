@@ -54,17 +54,37 @@ bool Timeline::record(const Phases& sample) noexcept {
 }
 Summary Timeline::summarize() const noexcept {
     Summary result{};result.overwritten=overwritten_;result.rejected=rejected_;
-    Values simulation{}, submit{}, cpu{}, input{};
-    std::size_t input_count=0;
+    Values simulation{}, submit{}, cpu{}, input{}, present_gaps{};
+    std::size_t input_count=0, gap_count=0;
+    std::uint64_t previous_present=0;
     for(std::size_t i=0;i<count_;i++){
         const std::size_t oldest=(write_+Capacity-count_)%Capacity;
         const auto& s=ring_[(oldest+i)%Capacity];
+        if(previous_present){
+            // A discontinuous software Present return timeline cannot be used
+            // as positive frame throughput evidence. Ignore that pair.
+            if(s.present_return_ns<=previous_present ||
+               s.present_return_ns-previous_present>MaxFrameSpan) {
+                ++result.present_cadence.invalid_intervals;
+            }else{
+                const auto interval=s.present_return_ns-previous_present;
+                present_gaps[gap_count++]=interval;
+                constexpr std::uint64_t Deadline30=(Billion+29ull)/30ull;
+                constexpr std::uint64_t Deadline60=(Billion+59ull)/60ull;
+                constexpr std::uint64_t Deadline120=(Billion+119ull)/120ull;
+                if(interval>Deadline30)++result.present_cadence.missed_30hz;
+                if(interval>Deadline60)++result.present_cadence.missed_60hz;
+                if(interval>Deadline120)++result.present_cadence.missed_120hz;
+            }
+        }
+        previous_present=s.present_return_ns;
         simulation[i]=s.simulation_end_ns-s.simulation_begin_ns;
         submit[i]=s.present_return_ns-s.render_submit_ns;
         cpu[i]=s.present_return_ns-s.simulation_begin_ns;
         if(s.input_received_ns)
             input[input_count++]=s.present_return_ns-s.input_received_ns;
     }
+    result.present_cadence.interval=describe(present_gaps,gap_count);
     result.simulation=describe(simulation,count_);
     result.submit_to_present_return=describe(submit,count_);
     result.cpu_frame=describe(cpu,count_);

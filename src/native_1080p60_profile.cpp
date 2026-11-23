@@ -23,7 +23,7 @@ constexpr std::size_t at(Knob k) noexcept {
 }
 
 Plan propose_1080p60(const Capabilities& capability,const GameHooks& hooks,
-                     const Goals& goals) noexcept {
+                     const Goals& goals) {
     Plan plan{};
     Preferences requested{};
     requested.backend=Backend::Auto;

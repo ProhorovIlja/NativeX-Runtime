@@ -1,11 +1,11 @@
-# Contributing
+# Contributing to NativeX Runtime
 
-We prioritize reproducibility and clean-room evidence, not headline compatibility percentages.
+Changes must be reproducible using original fixtures or appropriately licensed samples, with expected versus actual behavior, bounded logs and exact upstream source references.
 
-Changes must contain a clear test (synthetic fixture or appropriately licensed example), expected vs actual behavior, minimal logs and exact upstream references. All patches should be reviewable without game files.
+- Keep original code, test fixtures and reviewed redistributable dependencies separate from external or private inputs.
+- Do not include proprietary games, binaries, extracted shader blobs, closed SDKs, keys, credentials, private account data or confidential research material in source, issue attachments, pull requests or artifacts.
+- Verify third-party licensing before copying code. Preserve copyright and license notices.
+- Distinguish upstream claims, source inspection, fixture execution and independent native host reproduction. Do not claim complete application compatibility from isolated tests.
+- Use manual local build/test commands. Do not create schedules, background jobs or automatic workflows.
 
-Pull requests must not include commercial title code, Xbox proprietary binaries, secrets, copyrighted shader blobs or large dumps. Prefer pure Python/C++17 source and standard-library tooling. Check upstream source license and dependencies before reuse.
-
-Issue categories: loader/ABI, graphics/D3D12.X, RDNA2/waves, memory, input/audio, runtime services, performance, tests and upstream audit.
-
-All claims must use **one** evidence level: author claim; source inspected; fixture tested; game tested; independent reproduction. CI on a synthetic fixture does not make a retail game runnable.
+See [public scope](docs/PUBLIC_SCOPE.md) and [security](SECURITY.md).

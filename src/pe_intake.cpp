@@ -1,4 +1,4 @@
-// Read-only PE32+ metadata inspector. No third-party or game code.
+﻿// Read-only PE32+ metadata inspector. No third-party or game code.
 #include <algorithm>
 #include <cstdint>
 #include <fstream>
@@ -10,14 +10,19 @@
 #include <vector>
 #include <utility>
 
+
 class PE {
   std::vector<unsigned char> b;
   struct Section { uint32_t va, size, raw, len; };
   std::vector<Section> sections;
   std::vector<std::string> names, imports, delay_imports;
   struct Export { std::string name; uint32_t ordinal; std::string forwarder; };
-  struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal; };
+  struct ExportAddress { uint32_t ordinal, target_rva; std::string forwarder; };
+  struct ImportSymbol { std::string module, name; uint32_t ordinal; bool by_ordinal;
+                        uint32_t lookup_rva, iat_rva; uint16_t hint; };
   std::vector<Export> exports;
+  std::vector<ExportAddress> export_addresses;
+  std::string export_module;
   std::vector<ImportSymbol> import_symbols, delay_import_symbols;
   struct RuntimeFunction { uint32_t begin, end, unwind; };
   std::vector<RuntimeFunction> runtime_functions;
@@ -35,6 +40,7 @@ class PE {
   uint32_t tls_template_rva=0, tls_template_bytes=0;
   uint32_t tls_index_rva=0, tls_zero_fill_bytes=0;
   uint64_t image_base = 0;
+  uint32_t size_of_image = 0;
   uint32_t entry = 0, headers = 0;
   void need(size_t pos,size_t n) const {
     if(pos>b.size() || n>b.size()-pos) throw std::runtime_error("truncated or out-of-range PE");
@@ -65,14 +71,42 @@ class PE {
     }
     throw std::runtime_error("unterminated PE name");
   }
+  // An IMAGE_EXPORT_DIRECTORY forwarder RVA must contain a terminated
+  // printable ASCII reference *inside that directory*, not just anywhere
+  // in the section. This is a read-only bound, not symbol resolution.
+  std::string export_forwarder(uint32_t value,uint32_t first,uint32_t length) const {
+    const uint64_t end=uint64_t(first)+length;
+    std::string text;
+    for(uint32_t i=0;i<256u;i++){
+      const uint64_t address=uint64_t(value)+i;
+      if(address>=end || address>UINT32_MAX)
+        throw std::runtime_error("unterminated PE export forwarder");
+      const auto c=b[rva(uint32_t(address),1)];
+      if(!c)return text;
+      if(c<33u || c>126u)
+        throw std::runtime_error("invalid PE export forwarder character");
+      text.push_back(char(c));
+    }
+    throw std::runtime_error("PE export forwarder too long");
+  }
+
   // Inspect PE32+ IMAGE_THUNK_DATA64 without resolving or executing imports.
   // 8-byte entries, strict ordinal flag, bounded per descriptor and globally.
-  void inspect_thunks(uint32_t thunk_rva,const std::string& dll,
+  void inspect_thunks(uint32_t thunk_rva,uint32_t first_thunk_rva,
+                      const std::string& dll,
                       std::vector<ImportSymbol>& destination) const {
     if(!thunk_rva)return; // Import descriptors without INT/IAT are preserved as modules.
     for(uint64_t i=0;i<=8192;i++){
       const uint64_t address=uint64_t(thunk_rva)+i*8u;
-      if(address>UINT32_MAX)throw std::runtime_error("import thunk RVA overflow");
+      const uint64_t iat_address=first_thunk_rva
+        ?uint64_t(first_thunk_rva)+i*8u:0u;
+      if(address>UINT32_MAX || iat_address>UINT32_MAX)
+        throw std::runtime_error("import lookup or IAT slot RVA overflow");
+      // The IAT is a *memory* RVA and might point into the virtual tail
+      // of a section. Check SizeOfImage, not just file-backed bytes.
+      if(iat_address && (iat_address>size_of_image ||
+                         size_of_image-iat_address<8u))
+        throw std::runtime_error("import IAT slot exceeds image bounds");
       const uint64_t thunk=u64(rva(uint32_t(address),8));
       if(!thunk)return;
       if(i==8192||destination.size()>=32768)
@@ -81,18 +115,22 @@ class PE {
         // IMAGE_ORDINAL_FLAG64 set; all bits except low 16 must be zero.
         if(thunk&0x7fffffffffff0000ull)
           throw std::runtime_error("invalid PE import ordinal thunk");
-        destination.push_back({dll,std::string{},uint32_t(thunk&0xffffu),true});
+        destination.push_back({dll,std::string{},uint32_t(thunk&0xffffu),true,
+                               uint32_t(address),uint32_t(iat_address),0u});
       }else{
         if(thunk>UINT32_MAX-2u)
           throw std::runtime_error("invalid PE import-by-name RVA");
         const uint32_t name_rva=uint32_t(thunk);
         // IMAGE_IMPORT_BY_NAME = 2-byte hint followed by ASCII NUL string.
         rva(name_rva,2);
-        destination.push_back({dll,module(name_rva+2u),0u,false});
+        destination.push_back({dll,module(name_rva+2u),0u,false,
+                               uint32_t(address),uint32_t(iat_address),
+                               u16(rva(name_rva,2))});
       }
     }
     throw std::runtime_error("unterminated PE import thunk table");
   }
+
 
   // Read-only AMD64 UNWIND_INFO header and version-1 basic op slots.
   // Do not interpret handlers, execute exceptions, or register function tables.
@@ -184,7 +222,7 @@ class PE {
     out<<'"';return out.str();
   }
 public:
-  explicit PE(const char* path){
+  explicit PE(const char* path,bool compact=false){
     std::ifstream f(path,std::ios::binary|std::ios::ate);
     if(!f)throw std::runtime_error("file open failed");
     auto n=f.tellg(); if(n<0||n>512LL*1024*1024)throw std::runtime_error("file outside 512 MiB limit");
@@ -199,6 +237,9 @@ public:
     size_t opt=coff+20;need(opt,optlen);
     if(u16(opt)!=0x20b)throw std::runtime_error("not PE32+");
     entry=u32(opt+16);image_base=u64(opt+24);headers=u32(opt+60);
+    size_of_image=u32(opt+56);
+    if(size_of_image==0u || headers>size_of_image)
+      throw std::runtime_error("invalid PE32+ SizeOfImage");
     size_t sh=opt+optlen;need(sh,size_t(count)*40);
     for(unsigned i=0;i<count;i++){
       size_t p=sh+i*40;std::string name;
@@ -220,6 +261,7 @@ public:
       const size_t p=rva(exp.first,40);
       const uint32_t base=u32(p+16), fn_count=u32(p+20), name_count=u32(p+24);
       const uint32_t fn_rva=u32(p+28), names_rva=u32(p+32), ord_rva=u32(p+36);
+      if(u32(p+12))export_module=module(u32(p+12));
       if(fn_count>8192 || name_count>4096 || name_count>fn_count ||
          uint64_t(base)+fn_count>uint64_t(UINT32_MAX)+1)
         throw std::runtime_error("unsupported export counts");
@@ -233,16 +275,30 @@ public:
         name_table=rva(names_rva,uint64_t(name_count)*4);
         ordinal_table=rva(ord_rva,uint64_t(name_count)*2);
       }
+      // Include every nonzero export address, including ordinal-only slots.
+      // A zero EAT slot represents no export, not a callable function.
+      // An address pointing into the export directory is a forwarder
+      // string. This remains read-only metadata; do not resolve modules.
+      for(uint32_t i=0;i<fn_count;i++){
+        const uint32_t target=u32(functions+uint64_t(i)*4);
+        if(!target)continue;
+        const bool forwarded=uint64_t(target)>=exp.first &&
+            uint64_t(target)<uint64_t(exp.first)+exp.second;
+        if(!forwarded && target>=size_of_image)
+          throw std::runtime_error("export target outside PE image");
+        export_addresses.push_back({uint32_t(uint64_t(base)+i),target,
+                                    forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
+      }
       for(uint32_t i=0;i<name_count;i++){
         const uint16_t index=u16(ordinal_table+uint64_t(i)*2);
         if(index>=fn_count)throw std::runtime_error("invalid export ordinal index");
         const uint32_t target=u32(functions+uint64_t(index)*4);
         const uint32_t export_name_rva=u32(name_table+uint64_t(i)*4);
         const uint32_t ordinal=uint32_t(uint64_t(base)+index);
-        // Forwarded exports point into the export-directory RVA range.
+        if(!target)throw std::runtime_error("named export references empty EAT slot");
         const bool forwarded=uint64_t(target)>=exp.first &&
             uint64_t(target)<uint64_t(exp.first)+exp.second;
-        exports.push_back({module(export_name_rva),ordinal,forwarded?module(target):std::string{}});
+        exports.push_back({module(export_name_rva),ordinal,forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
       }
     }
     if(u32(opt+108)>=2){
@@ -259,7 +315,7 @@ public:
           imports.push_back(dll);
           // OriginalFirstThunk is the lookup table; FirstThunk is fallback.
           const uint32_t lookup=u32(p)?u32(p):u32(p+16);
-          inspect_thunks(lookup,dll,import_symbols);
+          inspect_thunks(lookup,u32(p+16),dll,import_symbols);
         }
         if(!done)throw std::runtime_error("unterminated import table");
       }
@@ -270,7 +326,7 @@ public:
     const auto exception=dir(3);
     if(exception.first || exception.second) {
       if(!exception.first || !exception.second || exception.second%12u ||
-         exception.second/12u>65536u)
+         exception.second/12u>(compact?1000000u:65536u))
         throw std::runtime_error("invalid AMD64 exception directory size");
       const uint32_t image_size=u32(opt+56);
       const auto first=rva(exception.first,exception.second);
@@ -363,12 +419,12 @@ public:
         delay_imports.push_back(dll);
         // IMAGE_DELAYLOAD_DESCRIPTOR pINT (offset 16), IAT (offset 12) fallback.
         const uint32_t lookup=u32(pos+16)?u32(pos+16):u32(pos+12);
-        inspect_thunks(lookup,dll,delay_import_symbols);
+        inspect_thunks(lookup,u32(pos+12),dll,delay_import_symbols);
       }
       if(!terminated)throw std::runtime_error("unterminated delay imports");
     }
   }
-  std::string json() const{
+  std::string json(bool compact=false) const{
     std::ostringstream out;
     out<<"{\"kind\":\"pe32plus-metadata\",\"machine\":\"AMD64\",\"sections\":"<<sections.size()
        <<",\"entry_rva\":"<<entry<<",\"image_base\":"<<image_base<<",\"import_modules\":[";
@@ -383,6 +439,10 @@ public:
       if(x.by_ordinal)out<<"null";else out<<quote(x.name);
       out<<",\"ordinal\":";
       if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<",\"lookup_rva\":"<<x.lookup_rva<<",\"iat_rva\":";
+      if(x.iat_rva)out<<x.iat_rva;else out<<"null";
+      out<<",\"name_hint\":";
+      if(x.by_ordinal)out<<"null";else out<<x.hint;
       out<<"}";
     }
     out<<"],\"delay_import_symbols\":[";
@@ -393,6 +453,10 @@ public:
       if(x.by_ordinal)out<<"null";else out<<quote(x.name);
       out<<",\"ordinal\":";
       if(x.by_ordinal)out<<x.ordinal;else out<<"null";
+      out<<",\"lookup_rva\":"<<x.lookup_rva<<",\"iat_rva\":";
+      if(x.iat_rva)out<<x.iat_rva;else out<<"null";
+      out<<",\"name_hint\":";
+      if(x.by_ordinal)out<<"null";else out<<x.hint;
       out<<"}";
     }
     out<<"],\"exports\":[";
@@ -403,15 +467,26 @@ public:
       if(exports[i].forwarder.empty())out<<"null";else out<<quote(exports[i].forwarder);
       out<<"}";
     }
+    out<<"],\"export_dll_name\":";
+    if(export_module.empty())out<<"null";else out<<quote(export_module);
+    out<<",\"export_addresses\":[";
+    for(size_t i=0;i<export_addresses.size();i++){
+      if(i)out<<",";
+      const auto& x=export_addresses[i];
+      out<<"{\"ordinal\":"<<x.ordinal<<",\"target_rva\":"<<x.target_rva
+         <<",\"forwarder\":";
+      if(x.forwarder.empty())out<<"null";else out<<quote(x.forwarder);
+      out<<"}";
+    }
     out<<"],\"runtime_functions\":[";
-    for(size_t i=0;i<runtime_functions.size();i++){
+    if(!compact)for(size_t i=0;i<runtime_functions.size();i++){
       if(i)out<<",";
       const auto& fn=runtime_functions[i];
       out<<"{\"begin_rva\":"<<fn.begin<<",\"end_rva\":"<<fn.end
          <<",\"unwind_rva\":"<<fn.unwind<<"}";
     }
     out<<"],\"unwind_infos\":[";
-    for(size_t i=0;i<unwind_summaries.size();i++){
+    if(!compact)for(size_t i=0;i<unwind_summaries.size();i++){
       if(i)out<<",";
       const auto& x=unwind_summaries[i];
       out<<"{\"unwind_rva\":"<<x.rva<<",\"version\":"<<x.version
@@ -424,7 +499,35 @@ public:
       if(x.handler)out<<x.handler;else out<<"null";
       out<<"}";
     }
-    out<<"],\"unwind_codes_executed\":false";
+    if(compact){
+      unsigned versions[8]={},flags[32]={};
+      std::uint64_t decoded=0, chained=0, max_stack=0;
+      for(const auto& x:unwind_summaries){
+        if(x.version<8)++versions[x.version];
+        if(x.flags<32)++flags[x.flags];
+        if(x.decoded)++decoded;
+        if(x.chain)++chained;
+        if(x.stack_bytes>max_stack)max_stack=x.stack_bytes;
+      }
+      out<<"],\"compact_pdata_summary\":true,\"runtime_function_count\":"
+         <<runtime_functions.size()<<",\"unwind_info_count\":"<<unwind_summaries.size()
+         <<",\"decoded_unwind_count\":"<<decoded<<",\"chained_unwind_count\":"<<chained
+         <<",\"max_unwind_stack_bytes\":"<<max_stack;
+      out<<",\"unwind_version_counts\":{";
+      bool first=true;
+      for(unsigned i=0;i<8;i++)if(versions[i]){
+        out<<(first?"":",")<<quote(std::to_string(i))<<":"<<versions[i];first=false;
+      }
+      out<<"},\"unwind_flag_counts\":{";
+      first=true;
+      for(unsigned i=0;i<32;i++)if(flags[i]){
+        out<<(first?"":",")<<quote(std::to_string(i))<<":"<<flags[i];first=false;
+      }
+      out<<"}";
+    }else{
+      out<<"]";
+    }
+    out<<",\"unwind_codes_executed\":false";
     out<<",\"unwind_codes_decoded\":false";
     out<<",\"tls_template_rva\":";
     if(tls_template_rva)out<<tls_template_rva;else out<<"null";
@@ -444,7 +547,10 @@ public:
   }
 };
 int main(int argc,char** argv){
-  if(argc!=2){std::cerr<<"usage: pe_intake <PE32+ file>\n";return 2;}
-  try{std::cout<<PE(argv[1]).json();return 0;}
+  const bool compact=argc==3 && std::string(argv[2])=="--compact";
+  if((argc!=2 && !compact)){
+    std::cerr<<"usage: pe_intake <PE32+ file> [--compact]\n";return 2;
+  }
+  try{std::cout<<PE(argv[1],compact).json(compact);return 0;}
   catch(const std::exception& e){std::cerr<<"pe_intake: "<<e.what()<<'\n';return 2;}
 }

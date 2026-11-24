@@ -32,6 +32,6 @@ No RAGE 9 keyboard/action ABI is available, so [desktop_example](../src/native_i
 
 ### Related integration priorities
 
-Native Windows x64 first; real game-compatible action/simulation dispatch after the console executable is available and verified. Use CPU/graphics/streaming bottleneck profiling to prioritize work. Allow user profiles with raw input, complete rebinds, separate UI/gameplay settings, optional mouse acceleration *only if explicitly desired*, gamepad/keyboard coexistence, and per-user camera preferences. Keep Frame Generation OFF by default with measured real rendered/simulated FPS in the requested [1080p/60 quality policy](GTA_VI_1080P60_QUALITY_NO_FG_PROFILE_2026-11-23.md).
+Native Windows x64 first; real game-compatible action/simulation dispatch after the console executable is available and verified. Use CPU/graphics/streaming bottleneck profiling to prioritize work. Allow user profiles with raw input, complete rebinds, separate UI/gameplay settings, optional mouse acceleration *only if explicitly desired*, gamepad/keyboard coexistence, and per-user camera preferences. Keep Frame Generation OFF by default with measured real rendered/simulated FPS in the requested [1080p/60 quality policy](https://github.com/ProhorovIlja/NativeX-Runtime/blob/14a8806993bcd73887c63c5261ae4d62598f759b/docs/GTA_VI_1080P60_QUALITY_NO_FG_PROFILE_2026-11-23.md).
 
 No game executable or assets were imported, no proprietary SDK or GPL code was copied, and no scheduled/ongoing work was established.

@@ -1,116 +1,58 @@
-# Scarlett Windows Compat
+# NativeX Runtime
 
-**Open-source, Windows-native Xbox Series X|S interoperability research. Not a finished emulator or a playable commercial-game port.**
+**Native x64 interoperability, platform runtime and graphics research for Windows and Linux.**
 
-Scarlett Windows Compat develops small, reproducible **clean-room test tools** for understanding how Xbox Series Game Core/GDK software interacts with desktop Windows x64. On a PC, compatible x86-64 instructions can execute directly; Xbox-specific services, memory and GPU semantics still require careful adaptation. The research is **native-first** rather than CPU-instruction emulation.
+NativeX Runtime (formerly Scarlett Windows Compat) develops original, independently buildable C++ and Python tools for PE32+ metadata inspection, native host ABI validation, memory, graphics, I/O, audio, input and performance research. The project explores direct execution of compatible x64 instructions on an x64 host, with native platform APIs where appropriate. Xbox Series / Game Core interoperability is a research area, not a promise of retail title compatibility.
 
-## Intended final product: GTA6.exe for Windows, not an Xbox emulator
+## Current capabilities
 
-**User-facing target:** a native Windows x64 `GTA6.exe` launched directly from Explorer, with an *optional* native `GTA6Launcher.exe` for user-invoked game-directory selection, graphics/input settings, manual update checks and Play. Game x64 code runs directly on the CPU; Windows-native modules handle the system, graphics, memory, audio and filesystem differences. Static import rebinding and/or selective native recompilation may be required, based on the actual game executable. No required emulator UI, virtual machine, mandatory launcher, automatic updater or account for offline single-player.
+| Area | Evidence in this repository |
+| --- | --- |
+| PE32+ | Bounded imports, exports (including ordinal-only entries), forwarders, TLS, relocations and AMD64 unwind inventory; compact analysis of large exception tables |
+| Dependency planning | Offline explicit import-binding plans, host export inventory validation, and immediate/delayed multi-image dependency preflight |
+| Native ABI | Source-built Windows DLL, TLS lifecycle, struct return and unwind/SEH fixtures |
+| Graphics | Original D3D12/WARP compute, raster, tiled resource and DXGI present tests; Linux Vulkan compute/raster fixtures; CPU/GPU BC texture checks |
+| Memory and I/O | Page alias models, Windows shared backing and IOCP fixtures, portable bounded asset streaming |
+| Input, audio and persistence | Remappable controls, gamepad analog processing, PCM mixing/resampling and two-slot save integrity |
+| Performance | Frame timing, safe x64 dispatch and explicit feature capability policies |
 
-**This is a target, not an existing build.** Real game EXE/asset integration, RAGE 9 startup, verified game frames, expanded in-game settings and autosave are not implemented. Synthetic Xbox/Windows interoperability tools below are supporting infrastructure, not a different product goal. [Technical product contract and gates](docs/NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md).
+These are separate experiments and reusable components, not a complete application runtime or commercial-game port. A matching export name is not ABI proof. WARP or CPU Vulkan success is not evidence of physical GPU performance.
 
-## What is here
+## Build and test (manual)
 
-**Verified native Windows/Linux progress — sixth pass (2026-11-22):** original [PE32+ V1 xdata unwind metadata inventory](docs/PE32_AMD64_XDATA_V1_2026-11-22.md) ([PR #82](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/82)); [fail-closed two-slot save recovery when either generation is unreadable](docs/NATIVE_PC_SAVE_RECOVERY_2026-11-22.md) ([PR #83](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/83)); and [stateless native gamepad radial deadzones, curves and trigger-floor processing](docs/NATIVE_PC_GAMEPAD_ANALOG_2026-11-22.md) ([PR #84](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/84)). Their combined Windows/Linux source builds and tests passed ([Windows 44 CTests with two capability skips; Linux 18/18](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44974336012)). **Not** a title boot, physical controller/haptic acceptance, or actual GTA VI autosave. [Complete evidence and remaining gates](docs/NATIVE_PE_SAVE_INPUT_SIXTH_PASS_2026-11-22.md).
+Requirements: CMake 3.20+, Python 3.11+, and a C++17 compiler. Windows graphics fixtures additionally depend on the Windows SDK and appropriate runtime capabilities. LLVM Clang and lld-link are optional for the source-built Win64 PE export fixture.
 
-
-**Newest source-built Windows PE32+ ABI gates:** [AMD64 `.pdata` exception directory inventory](docs/PE32_AMD64_EXCEPTION_DIRECTORY_2026-11-22.md) ([PR #76](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/76)); [actual Windows native x64 SEH across registered `RUNTIME_FUNCTION` with W^X code](docs/NATIVE_WIN_DYNAMIC_SEH_UNWIND_2026-11-22.md) ([PR #77](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/77)); [bounded PE32+ TLS64 callback pointer/template/index inventory](docs/PE32_TLS_CALLBACKS_2026-11-22.md) ([PR #78](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/78)); [real source-built DLL TLS process/thread attach, independent per-thread state and detach](docs/NATIVE_WIN_TLS_DLL_LIFECYCLE_2026-11-22.md) ([PR #79](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/79)); and [cross-check of the actual MSVC DLL's TLS/.pdata metadata against the same native OS-loaded DLL](docs/PE32_COMPILED_TLS_PDATA_INTEGRATION_2026-11-22.md) ([PR #80](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/80)). Windows/Linux CI passed, with **43 Windows CTests without failure** and **17 Linux CTests passed** on the latest checked PR; two optional physical-device Windows tests explicitly skipped. See [full source-backed loader/ABI audit](docs/NATIVE_PC_PE_EXCEPTION_TLS_INTEGRATION_2026-11-22.md). This **is not verified Xbox GDK or GTA VI game execution**.
-
-
-**Newest native correctness gates (2026-11-22):** strict **PE32+ named/ordinal/delayed symbol inventory** ([PR #71](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/71), [CI 44970507886](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44970507886)); original **BC1/BC3 compressed texture CPU decode and non-power-of-two raster tests** ([PR #72](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/72), [CI 44970755832](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44970755832)); **actual Windows WARP D3D12 BC1/BC3 texture upload, shader-visible SRV, pixel shader sampling and 256-pixel CPU-oracle readback per format** ([PR #73](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/73), [CI 44971229821](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44971229821)); **actual Windows VirtualAlloc2/MapViewOfFile3 64 KiB CPU placeholder memory remapping and shared backing aliases**, with the GPU tests still passing in the combined CI ([PR #74](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/74), [CI 44971613467](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44971613467)). [Detailed evidence, upstream engineering leads and outstanding title/physical GPU gates](docs/NATIVE_ABI_GPU_MEMORY_THIRD_PASS_2026-11-22.md). **No Xbox game EXE, GPU RDNA2 compatibility or actual GTA VI assets/gameplay verified.**
-
-
-
-**Native-loaded optimized PE memory regression:** [PR #69](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/69) source-built an original CRT-free MSVC `/O2` x64 PE32+ program and executed it through the pinned independent Windows loader. The test revealed and fixed an actual `memset` link problem by using inline `__stosb`; all six native PE tests returned exactly **42, 43, 44, 45, 46, 47** ([Windows CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44969822744)). This is not execution of the Xbox title or validation of full GDK compatibility.
-
-**Newest source-built Windows/Linux host functionality (2026-11-22):** real 64 KiB CPU shared memory mapped from two independent OS processes ([PR #65](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/65)), a full **12-frame** Win32 D3D12 WARP/DXGI Present loop with one-frame pacing and safe live `ResizeBuffers` ([PR #66](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/66)), two real Windows/Linux localhost TCP child processes exchanging exact **256 KiB** messages and rejecting oversized requests ([PR #67](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/67)), and strict BT.601/BT.709 NV12-to-BGRA8 CPU video surfaces with odd dimensions and checked strides ([PR #68](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/68)). All passed native Windows/Linux CI, but **none** is a playable GTA VI port, real hardware video decoder, physical GPU benchmark or completed network gameplay. See [new source and licensing audit](docs/NATIVE_PLATFORM_UPSTREAM_AUDIT_2026-11-22.md).
-
-
-**Latest native Windows integration (2026-11-22):** [two reserved 64 KiB D3D12 virtual GPU pages share one backing tile](docs/NATIVE_WIN_D3D12_TILE_ALIAS_2026-11-22.md), with exact 128 KiB WARP readback ([PR #61](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/61)); [an integrated original native input-frame→D3D12 Present pipeline](docs/NATIVE_WIN_INPUT_TO_PRESENT_2026-11-22.md) records a frame snapshot and CPU timestamps around a real Win32 DXGI Present ([PR #62](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/62)); [native remappable keyboard/mouse/gamepad controls](docs/NATIVE_PC_ACTION_REMAP_2026-11-22.md) now support chords, alternatives, gamepad triggers and a 1048-byte checked profile persisted with the two-slot native save core ([PR #63](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/63)). These are original desktop component tests, **not** GTA VI execution, physical GPU benchmarks or Sony haptic output. Compare current [FSR/DLSS/XeSS and DLSS 5 feature SDK gates](docs/NATIVE_PC_GPU_SDK_GATES_2026-11-22.md) before attempting a game renderer integration.
-
-
-**Current independent native Windows/Linux GPU and input progress (2026-11-22):** source-built [Linux Vulkan raster/readback](docs/NATIVE_LINUX_VULKAN_RASTER_2026-11-22.md) draws a triangle and checks all 1024 RGBA8 pixels ([PR #56](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/56)), while native Windows D3D12/DXGI WARP exercises a **real one-frame waitable swapchain signal** and Present ([PR #57](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/57)). New Windows/Linux [frame phase p50/p95/p99 diagnostics](docs/NATIVE_PC_FRAME_TIMING_2026-11-22.md) ([PR #58](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/58)) and [by-value input frame snapshots](docs/NATIVE_PC_INPUT_2026-11-22.md) ([PR #59](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/59)) have passed deterministic CTests. The Vulkan renderer runs on Mesa CPU Vulkan, and no actual Xbox GTA VI game binary, assets or GPU shader translation were tested. [Updated official SDK and Xbox upstream evidence](docs/UPSTREAM_PC_NATIVE_RUNTIME_2026-11-22.md).
-
-
-
-**Latest verified native PC findings (2026-11-22):** original Windows x64 D3D12 WARP now executes actual `Present` on a two-buffer HWND DXGI swapchain ([PR #52](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/52)), and real reserved GPU resources are tile-mapped in two 64 KiB pages with 128 KiB byte-for-byte readback ([PR #53](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/53)). An independently source-built, GPL-licensed external native PE loader also executed our own fifth Win32 DXGI Present fixture (exit **46**) after the preceding probes returned **42–45** ([PR #54](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/54)). Portable two-slot save integrity/recovery ([PR #49](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/49)) and per-device Raw Input held-state fixes ([PR #50](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/50)) pass native Windows/Linux CI. These tests do **not** implement or launch GTA VI, Xbox D3D12.X, physical-GPU rendering, full game save semantics or finished haptics. [Evidence matrix and real game-port acceptance gates](docs/NATIVE_PORT_GATES_2026-11-22.md).
-
-
-
-
-### Verified Windows/Linux native progress — 2026-11-22
-
-Source-built and CI-tested independent components include [Linux native Vulkan SPIR-V compute and CPU readback](docs/NATIVE_LINUX_VULKAN_COMPUTE_2026-11-22.md) ([PR #44](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/44)), [Win32 IOCP real asynchronous file I/O](docs/NATIVE_WIN_IOCP_DISK_2026-11-22.md) ([PR #45](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/45)) and a [portable native stereo audio mixer with optional Windows WASAPI endpoint probe](docs/NATIVE_PC_AUDIO_2026-11-22.md) ([PR #46](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/46)). The audio hardware probe was skipped on headless CI. The latest external [AnyXboxX source regression build](docs/ANYXBOXX_NATIVE_BUILD_GATE.md) passed our four original PE32+ tests ([PR #47](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/47)); that upstream has changed to GPL-3.0-or-later, so its source is not copied into this MIT repository. These verify small native desktop building blocks, **not a working Xbox game, its audio, its rendering or GTA VI**. [Updated upstream research and evidence](docs/UPSTREAM_SECOND_PASS_2026-11-22.md).
-
-
-
-- `src/pe_intake.cpp` — original read-only PE32+ import/section, delayed-import, TLS-directory and relocation-block inspection; no code execution.
-- `src/platform_probe.cpp` — Windows-only probe of system graphics/media/input API availability.
-- `tools/radar.py` — read-only GitHub revision scanner against [pinned SHAs](sources/upstreams.json).
-- `tools/discover.py` — search for relevant new public projects/forks; candidates remain unreviewed.
-- `tools/commit_watch.py` — bounded metadata-only scan of recent commit subjects, never proof of a fixed bug.
-- `tools/sdk_radar.py` — official PC graphics, Windows DirectStorage, Proton and vkd3d-proton release metadata; GitHub tags are not runtime capability evidence (see [SDK radar](docs/SDK_RELEASE_RADAR.md)).
-- `sources/input_upstreams.json` — separate pinned GameInput, SDL3, HIDAPI and DualSense-reference commit monitor ([input stack review](docs/INPUT_UPSTREAM_REVIEW_2026-11-22.md)); no unlicensed source or virtual controller drivers imported.
-- `fixtures/wave64_cpu_oracle.cpp` — source-built logical wave64 vs 2×wave32 CPU differential tests.
-- `fixtures/d3d12_warp_smoke.cpp`, `fixtures/d3d12_warp_compute.cpp` — native Windows D3D12 WARP command/fence and synthetic SM5 compute readback.
-- `fixtures/wave_lanes_sm6.hlsl`, `fixtures/d3d12_wave_sm6.cpp` — source-built Shader Model 6 wave intrinsics **actually executed on WARP** and verified against CPU output.
-- `fixtures/win_memory_alias.cpp`, `fixtures/physical_page_cpu_model.cpp` — Win32 memory and independent page-identity/remapping model.
-- `fixtures/msvc_struct_return_abi.cpp` — native Windows x64 synthetic virtual struct-return ABI regression test.
-- `fixtures/command_record_cpu_model.cpp` — bounded synthetic graphics/DMA stream writer/parser with corruption and memory-safety guards (not real Xbox command records).
-- `tools/verify_anyxboxx_native.ps1` — exact-SHA independent external source build of an LGPL upstream native Windows launcher; does not execute it or copy binaries into this repository.
-- The SM6 fixture has distinct `warp` and vendor-checked `hardware` modes; the public runner passed WARP and correctly skipped unavailable AMD/NVIDIA/Intel hardware.
-- `src/pe_intake.cpp` also reports PE32+ named/ordinal exports and forwarded-export metadata with bounded tables, including checks against our own compiled DLL.
-- `docs/UPSTREAM_REVIEW_2026-11-22.md` — dated comparison of changes in seven upstream projects, with links and explicit proof gaps.
-- `docs/ARCHITECTURE.md`, `docs/SOURCES.md` and `docs/ROADMAP.md` — engineering baselines and evidence discipline.
-- `.github/workflows/ci.yml` — synthetic Linux/Windows tests on standard **public-repository** runners.
-
-Nothing here runs a retail Xbox title. Repository percentages and screenshots from third parties are **not** evidence of native game execution. We neither host nor request copyrighted game EXEs, proprietary DLLs, firmware, game assets, keys or leaked SDKs.
-
-## Build and test
-
-Python 3.11+, CMake 3.20+, C++17 compiler:
-
-```shell
-python -m unittest discover -s tests -v
-cmake -S . -B build
+```sh
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ctest --test-dir build -C Release --output-on-failure
-python tools/radar.py --offline-fixture tests/fixtures/public_metadata.json
-python tools/discover.py --offline-fixture tests/fixtures/discovery.json
+python -m unittest discover -s tests -v
 ```
 
-On Windows x64, `win_native_probe.exe` prints **host capabilities**, not Xbox compatibility. `pe_intake` inspects a local file **without executing it**. Linux CI tests use synthetic files and intentionally never run unknown executables.
+Run offline PE checks without executing the inspected image:
 
-## Engineering and licensing
+```sh
+# Linux/macOS-style executable path for the portable inspector
+./build/pe_intake /path/to/authorized-sample.exe --compact
+```
 
-All project's original source files are published under MIT (see LICENSE). Upstream projects have **different** licenses (including GPL and LGPL) and are **references**, not embedded dependencies. No third-party source code is copied without an explicit license, attribution and compatibility review.
+On Windows, use the generated pe_intake.exe (typically build/Release/pe_intake.exe for a multi-configuration generator). See the [PE tools guide](docs/NATIVE_PE_TOOLS.md) for explicit input manifests and failure semantics.
 
-See [the native Windows end-state definition](docs/NATIVE_TARGET.md), [project limitations](docs/STATE.md), [safe research rules](SECURITY.md) and [contribution guidelines](CONTRIBUTING.md).
-Research updates: [2026-11-22 upstream ABI/shader delta](docs/UPSTREAM_DELTA_2026-11-22.md). Exact upstream author claims and independently executed tests are recorded separately.
+The new PE tools were manually verified on 2026-11-24 with strict GNU C++17 compilation, four independent integration checks and 23 Python unit tests. Previously merged Windows/Linux fixture evidence is retained in dated technical reports. The current revision has not been certified by a new Windows CI run. Automatic GitHub Actions are disabled by the repository owner; use local, on-demand tests.
 
-Current watched branch-tip snapshot: [2026-11-22 upstream checkpoint](docs/UPSTREAM_CHECKPOINT_2026-11-22.md). Original SHA baselines retained separately; commit movement is not proof of game compatibility.
+## Documentation
 
-Native upstream-source reproduction: [AnyXboxX clean-build gate](docs/ANYXBOXX_NATIVE_BUILD_GATE.md) and [independent Windows run](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44956507116). This confirms a public-source build only, not gameplay.
+- [Public scope and provenance](docs/PUBLIC_SCOPE.md)
+- [Architecture](docs/ARCHITECTURE.md), [target](docs/NATIVE_TARGET.md) and [roadmap](docs/ROADMAP.md)
+- [Current verified development state](docs/STATE.md)
+- [Native PE tools](docs/NATIVE_PE_TOOLS.md)
+- [Source and license review](docs/SOURCES.md)
+- [Contribution policy](CONTRIBUTING.md) and [security](SECURITY.md)
 
-Public research inventory now tracks 19 source repositories, including Microsoft PC GDK samples, DXC, LLVM, DirectX Graphics Samples and shadPS4 as a distinct architecture-only reference: [additional primary references](docs/PRIMARY_PUBLIC_REFERENCES_2026-11-22.md).
+## License and boundaries
 
-Actual independent native PE32+ execution through the pinned upstream (three original CRT-free test programs returned expected exit codes **42 / 43 / 44**): [verified Windows CI](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44957418968) and [fixture sources](fixtures/native-pe-exec). This is not a GDK title or commercial-game boot.
+Original project code is MIT-licensed. Vendored dependencies retain their own licenses; check each third-party notice before reuse. No proprietary games, executable images, SDK binaries, game assets, cryptographic keys, or access-control bypasses belong in the repository.
 
-Native-loaded desktop D3D12 smoke: [PR #27](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/27) and [CI result](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/actions/runs/44958262954), validating WARP device, queue and fence from the original PE's mapped entrypoint; **no Xbox D3D12.X rendering yet**.
+This is an independent research project, not affiliated with Microsoft or any game publisher. Earlier development records included title-specific feasibility and planning discussions. They remain preserved in [the historical repository revision](https://github.com/ProhorovIlja/NativeX-Runtime/tree/14a8806993bcd73887c63c5261ae4d62598f759b); the current public scope is the independently testable infrastructure. This restructuring does not alter historical evidence or establish legal authorization for private experiments.
 
-
-Future native Windows + Linux graphics/IO/audio/latency work, optional FSR/DLSS/XeSS, Reflex/Anti-Lag2/XeLL, DLSS 5 neural research, DirectStorage and native io_uring: [technology architecture](docs/NATIVE_PC_TECH_STACK.md). Main contains a source-built and CI-tested fail-closed cross-platform feature policy and a host library inventory; **no vendor SDK integration is yet claimed**.
-
-Actual portable Windows/Linux asynchronous asset reads (native threads, cancellation, bounded chunks and hash checks) are source-built and CI-tested: [PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29), [technical scope](docs/NATIVE_ASSET_STREAMING.md). This is a portable baseline, not DirectStorage or io_uring yet.
-
-Recent verified source-built PC work:
-- [Portable native Windows/Linux asset streaming](docs/NATIVE_ASSET_STREAMING.md) ([PR #29](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/29)); not DirectStorage or io_uring.
-- [Renderer-specific modern SDK feature guards](docs/GPU_API_INTEGRATION_GATES_2026-11-22.md) ([PR #35](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/35)); 14 policy scenarios, no vendor effects claimed.
-- [Native desktop D3D12 WARP triangle raster + verified pixel readback](docs/D3D12_RASTER_READBACK_2026-11-22.md) ([PR #36](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/36)); 18/18 Windows tests pass, but no Xbox D3D12.X or GTA VI game frame.
-
-
-Native PC controller and input milestones:
-- [Native Win32 Raw Input + XInput and C++17 event-state tests](docs/NATIVE_PC_INPUT_2026-11-22.md), [PR #40](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/40): Windows and Linux tests passed; Windows Raw Input registration and system XInput API were executed without virtual controller emulation.
-- [Official Microsoft GameInput v4 + DualSense source SDK validation](third_party/microsoft-gameinput/README.md), [PR #41](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/41): original MIT headers and source-compiled validity checks, without sending haptic packets or claiming a physical controller test.
-- [Input-source surveillance](docs/INPUT_UPSTREAM_REVIEW_2026-11-22.md), [PR #42](https://github.com/ProhorovIlja/Scarlett-Windows-Compat/pull/42): per-source pinned HEAD baselines and CI fixtures for GameInput, SDL3, HIDAPI and DualSense protocol research.
+Only use external materials you are authorized to access and analyze. Do not submit proprietary inputs or private information in issues, pull requests or commits.

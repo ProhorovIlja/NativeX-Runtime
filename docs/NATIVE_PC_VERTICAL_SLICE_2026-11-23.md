@@ -51,7 +51,7 @@ game. Existing GDK/graphics/PE research must be integrated or statically
 adapted only where compatible with the eventual lawful title binaries.
 A launcher is optional. This fixture does not relax the no-emulator shipping
 contract described in
-[NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md](NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md).
+[NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md](https://github.com/ProhorovIlja/NativeX-Runtime/blob/14a8806993bcd73887c63c5261ae4d62598f759b/docs/NATIVE_WINDOWS_EXE_PRODUCT_CONTRACT_2026-11-23.md).
 
 Only the repository's existing, on-demand PR validation is used. No new
 scheduled searches, monitoring, recurring jobs, desktop services or notifications.

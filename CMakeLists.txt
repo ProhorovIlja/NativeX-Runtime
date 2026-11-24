@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(ScarlettWindowsCompat LANGUAGES CXX)
+project(NativeXRuntime LANGUAGES CXX)
 include(CTest)
 add_executable(pe_intake src/pe_intake.cpp)
 target_compile_features(pe_intake PRIVATE cxx_std_17)
@@ -10,6 +10,30 @@ else()
 endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 add_test(NAME pe32plus_readonly_fixture COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_pe_intake.py" "$<TARGET_FILE:pe_intake>")
+# Explicitly invoked, offline source-built large PE32+ fixture: >65k AMD64
+# pdata records. Ensures --compact inspects them without large JSON artifacts.
+add_test(NAME pe32plus_large_pdata_compact_selftest
+  COMMAND "${Python3_EXECUTABLE}" "${CMAKE_SOURCE_DIR}/tests/check_large_pe_compact.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_large_pdata_compact_selftest PROPERTIES TIMEOUT 25)
+# Native Windows x64 import dependency planning: no guest execution/rebinding.
+# The synthetic PE is read by pe_intake, then mapped only through explicit host
+# export or native-adapter declarations. Missing and unsupported imports fail closed.
+add_test(NAME pe32plus_native_import_binding_plan_pipeline
+  COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/check_pe_binding_pipeline.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_native_import_binding_plan_pipeline PROPERTIES TIMEOUT 15)
+
+# Optional real Windows x64 PE32+ export-table inspection using original C and
+# .def fixtures compiled by Clang/LLVM. No DLL is loaded or executed; missing
+# clang/lld-link yields an explicit CTest skip (77), never a fabricated pass.
+add_test(NAME pe32plus_sourcebuilt_host_dll_exports_and_forwarders
+  COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_SOURCE_DIR}/tests/check_sourcebuilt_pe_host_exports.py"
+    "$<TARGET_FILE:pe_intake>")
+set_tests_properties(pe32plus_sourcebuilt_host_dll_exports_and_forwarders
+  PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 45)
 if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
   add_executable(win_native_probe src/platform_probe.cpp)
   target_compile_features(win_native_probe PRIVATE cxx_std_17)
@@ -263,7 +287,7 @@ endforeach()
 add_test(NAME native_pc_input_event_state_machine COMMAND native_input_core_tests)
 
 # Source-built fixed-capacity native keyboard/mouse/XInput action mapper.
-# Profile is an illustrative remappable PC action scheme, not GTA VI bindings.
+# Profile is an illustrative remappable PC action scheme, not title-specific bindings.
 add_library(native_input_bindings STATIC src/native_input_bindings.cpp)
 target_include_directories(native_input_bindings PUBLIC "${CMAKE_SOURCE_DIR}/src")
 target_link_libraries(native_input_bindings PUBLIC native_input_core)
@@ -733,7 +757,7 @@ set_tests_properties(native_pc_stereo_pcm_rate_conversion PROPERTIES TIMEOUT 15)
 
 # Integrated source-built *native* Windows/Linux PC executable.
 # One deterministic scenario crosses OS file I/O, BC1 publication, per-device
-# input, profile serialization, durable saves and PCM mixing. No GTA VI assets,
+# input, profile serialization, durable saves and PCM mixing. No proprietary assets,
 # title EXE, proprietary SDK, game boot, real GPU output or autosave claims.
 add_executable(native_pc_vertical_slice fixtures/native_pc_vertical_slice.cpp)
 target_compile_features(native_pc_vertical_slice PRIVATE cxx_std_17)

@@ -1,11 +1,10 @@
 # Security and provenance
 
-- Source-code-only public repository. Do **not** upload retail game archives or EXEs, console DLLs, shaders extracted from proprietary games, protected SDK files, firmware, credentials, keys, private account data, crash dumps or copyrighted game media.
-- No instructions or code for circumventing retail DRM are required for our synthetic interoperability tests.
-- Treat downloaded executables, GitHub releases and untrusted PRs as potentially malicious. CI must not execute arbitrary upstream binaries or extract unverified archives.
-- Keep local experimental inputs outside the repository. Never publish entire process-memory snapshots or title-specific storage.
-- Never claim a title runs from a README metric or video alone. Record exact SHA and distinguish source review, synthetic test, live hardware test and independently reproduced result.
-- Any future dependency must pass license/provenance review; do not mechanically merge unrelated projects or GPL/LGPL code.
-- GitHub Actions run only on standard hosted Linux/Windows runners in this **public** repository. No paid runner types, external paid services or self-hosted hardware are required.
+- This public source repository must not contain proprietary binaries, game archives, protected SDK files, extracted proprietary source or shaders, firmware, credentials, keys, personal data or memory dumps.
+- Only use inputs you are authorized to access and analyze. No DRM or access-control bypass is required by the public test suite.
+- Treat downloaded executable files and external releases as untrusted. Never run arbitrary binaries to inspect metadata; use the bounded offline reader and independently built fixtures.
+- Keep private inputs outside the checkout. Review staged files and diffs before publishing; ignore rules are only a defense in depth, not access control.
+- Verify provenance, license terms and dependency revisions before adoption. Respect third-party notices.
+- Automatic GitHub Actions are disabled by the repository owner. No automatic execution or background monitoring should be introduced. Prefer on-demand local tests.
 
-For security reports, open a minimal issue without confidential data.
+Use a minimal security report with no confidential data. See [public scope](docs/PUBLIC_SCOPE.md).

@@ -35,3 +35,13 @@ games/
 dumps/
 extracted/
 private/
+
+# Local-only workspace: keep all nonredistributable inputs outside the checkout.
+.local/
+local-inputs/
+private-research/
+local-results/
+*.dmp
+*.core
+.env
+.env.*

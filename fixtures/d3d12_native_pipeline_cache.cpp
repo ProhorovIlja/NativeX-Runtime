@@ -1,5 +1,5 @@
-// Original local D3D12 compute cache fixture. No game input. Same device/run
-// only: the temporary cache is NOT a persistent cross-driver identity probe.
+// Original local D3D12 compute cache fixture. No game input. Default mode
+// uses a temporary same-run cache; explicit path opts into scoped local reuse.
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
@@ -8,6 +8,7 @@
 #include <d3dcompiler.h>
 #include <wrl/client.h>
 #include "native_pipeline_build.hpp"
+#include "native_win_pipeline_scope.hpp"
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -46,7 +47,7 @@ void dispatch_and_verify(ID3D12Device* dev,ID3D12RootSignature* root,ID3D12Pipel
     const auto completed=fence->GetCompletedValue();if(completed==UINT64_MAX||completed<1)abort_pending("invalid fence completion");checked(dev->GetDeviceRemovedReason(),"device removed");
     const D3D12_RANGE range{0,static_cast<SIZE_T>(bytes)},none{0,0};void* ptr=nullptr;checked(read->Map(0,&range,&ptr),"map");const auto* data=static_cast<const std::uint32_t*>(ptr);bool same=true;for(UINT i=0;i<count;++i)if(data[i]!=(((i+1u)*17u)^0xa5a5a5a5u))same=false;read->Unmap(0,&none);check(same,"compute output mismatch");
 }
-int run(bool hardware){
+int run(bool hardware,const std::filesystem::path& persistent){
     ComPtr<IDXGIFactory4> factory;checked(CreateDXGIFactory2(0,IID_PPV_ARGS(&factory)),"factory");ComPtr<IDXGIAdapter1> adapter;ComPtr<ID3D12Device> dev;
     if(hardware){for(UINT i=0;;++i){ComPtr<IDXGIAdapter1> a;auto hr=factory->EnumAdapters1(i,&a);if(hr==DXGI_ERROR_NOT_FOUND)break;checked(hr,"enumerate");DXGI_ADAPTER_DESC1 d{};checked(a->GetDesc1(&d),"description");if((d.Flags&DXGI_ADAPTER_FLAG_SOFTWARE)||d.VendorId!=0x10de)continue;if(SUCCEEDED(D3D12CreateDevice(a.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&dev)))){adapter=a;break;}}}
     else if(SUCCEEDED(factory->EnumWarpAdapter(IID_PPV_ARGS(&adapter))))D3D12CreateDevice(adapter.Get(),D3D_FEATURE_LEVEL_11_0,IID_PPV_ARGS(&dev));
@@ -59,15 +60,42 @@ int run(bool hardware){
     ComPtr<ID3D12RootSignature> root;checked(dev->CreateRootSignature(0,sig->GetBufferPointer(),sig->GetBufferSize(),IID_PPV_ARGS(&root)),"root");
     D3D12_COMPUTE_PIPELINE_STATE_DESC desc{};desc.pRootSignature=root.Get();desc.CS={code->GetBufferPointer(),code->GetBufferSize()};
     const auto key=compute_key(blob_bytes(sig.Get()),blob_bytes(code.Get()),desc.NodeMask,static_cast<std::uint32_t>(desc.Flags));check(!key.empty(),"key");
-    // This temporary directory is exclusive and removed before exit. No
-    // persisted data from prior runs or other adapters is loaded here.
+    // Always use a separate exclusive temporary directory for the same-run
+    // roundtrip, even when the caller opts into a persistent cache.
     const auto path=std::filesystem::temp_directory_path()/("nativex-pso-fixture-"+std::to_string(Clock::now().time_since_epoch().count()));check(std::filesystem::create_directory(path),"temp dir");Temp temp{path};
-    auto file=path/"fixture.bin";const Bytes scope{'s','a','m','e','-','d','e','v','i','c','e',1};Cache cold(scope);ComPtr<ID3D12PipelineState> pso;long long elapsed=0;HRESULT last=S_OK;
+    auto file=path/"fixture.bin";
+    Bytes scope{'s','a','m','e','-','d','e','v','i','c','e',1};
+    const Bytes producer{'N','X','-','P','S','O','-','F','I','X',1};
+    if(!persistent.empty()){
+        // Producer version must be bumped for semantic pipeline/runtime changes.
+        scope=windows_scope(adapter.Get(),dev.Get(),L"d3dcompiler_47.dll",producer);
+        if(scope.empty()){std::cout<<"SKIP: persistent identity unavailable\n";return 77;}
+    }
+    Cache cold(scope);ComPtr<ID3D12PipelineState> pso;long long elapsed=0;HRESULT last=S_OK;
     auto create=[&](const Bytes* cached){D3D12_COMPUTE_PIPELINE_STATE_DESC input=desc;if(cached){input.CachedPSO.pCachedBlob=cached->data();input.CachedPSO.CachedBlobSizeInBytes=cached->size();}
         pso.Reset();const auto start=Clock::now();last=dev->CreateComputePipelineState(&input,IID_PPV_ARGS(&pso));elapsed=std::chrono::duration_cast<std::chrono::microseconds>(Clock::now()-start).count();
         if(FAILED(last))return Attempt{cached&&cache_rejection(last)?AttemptStatus::CacheRejected:AttemptStatus::Failed,{}};
         if(!cached){ComPtr<ID3DBlob> blob;const auto result=pso->GetCachedBlob(&blob);if(SUCCEEDED(result)&&blob&&blob->GetBufferSize()&&blob->GetBufferSize()<=MaxBlobBytes)return Attempt{AttemptStatus::Created,blob_bytes(blob.Get())};}
         return Attempt{AttemptStatus::Created,{}};};
+    if(!persistent.empty()){
+        // An explicit, trusted local cache path is required. Incompatible or
+        // damaged existing snapshots are neither used nor overwritten.
+        Cache prior(scope);const auto load=prior.load(persistent);
+        const bool writable=load==Status::Ok||load==Status::Miss;
+        auto result=create_cached(prior,key,create);checked(last,"persistent PSO");
+        check(pso.Get()!=nullptr,"persistent creation");dispatch_and_verify(dev.Get(),root.Get(),pso.Get());
+        bool saved=false;
+        const bool stable=windows_scope(adapter.Get(),dev.Get(),L"d3dcompiler_47.dll",producer)==scope;
+        if(writable&&stable&&(result.write==WriteStatus::Stored||result.cache_rejected)){
+            check(prior.save(persistent)==Status::Ok,"persistent save");saved=true;
+        }
+        std::cout<<"{\"persistent_load_status\":"<<static_cast<unsigned>(load)
+                 <<",\"persistent_build_path\":"<<static_cast<unsigned>(result.path)
+                 <<",\"persistent_saved\":"<<(saved?"true":"false")
+                 <<",\"scope_stable\":"<<(stable?"true":"false")
+                 <<",\"verified_elements\":64,\"last_create_us\":"<<elapsed<<"}\n";
+        return 0;
+    }
     auto first=create_cached(cold,key,create);checked(last,"cold PSO");check(first.path==BuildPath::Cold&&pso,"cold creation");const auto cold_us=elapsed;dispatch_and_verify(dev.Get(),root.Get(),pso.Get());
     if(first.write!=WriteStatus::Stored){std::cout<<"SKIP: cold output verified, reusable blob unavailable\n";return 77;}
     check(cold.save(file)==Status::Ok,"save");pso.Reset();Cache warm(scope);check(warm.load(file)==Status::Ok,"reopen");auto second=create_cached(warm,key,create);checked(last,"warm PSO");check(pso.Get()!=nullptr,"warm object");dispatch_and_verify(dev.Get(),root.Get(),pso.Get());
@@ -75,4 +103,4 @@ int run(bool hardware){
     std::cout<<"{\"cold_create_us\":"<<cold_us<<",\"cached_create_us\":"<<elapsed<<",\"verified_elements\":128,\"cache_accepted\":true,\"hardware\":"<<(hardware?"true":"false")<<"}\n";return 0;
 }
 }
-int main(int argc,char** argv){try{if(argc!=2||(std::string(argv[1])!="warp"&&std::string(argv[1])!="nvidia"))return 2;return run(std::string(argv[1])=="nvidia");}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}
+int main(int argc,char** argv){try{if((argc!=2&&argc!=3)||(std::string(argv[1])!="warp"&&std::string(argv[1])!="nvidia")||(argc==3&&!*argv[2])){std::cerr<<"usage: d3d12_native_pipeline_cache warp|nvidia [trusted-local-cache-file]\n";return 2;}return run(std::string(argv[1])=="nvidia",argc==3?std::filesystem::path(argv[2]):std::filesystem::path{});}catch(const std::exception& e){std::cerr<<e.what()<<'\n';return 1;}}

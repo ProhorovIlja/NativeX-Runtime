@@ -5,13 +5,16 @@ import ctypes as C
 import os
 from pathlib import Path
 import random
+import json
+import statistics
+import time
 import sys
 
 U, I, P, Z = C.c_uint, C.c_int, C.c_void_p, C.c_ssize_t
 M = 0xffffffff
 
 
-def run(shader_name, seed):
+def run(shader_name, seed, repeats=1):
     os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
     egl = C.CDLL('libEGL.so.1')
 
@@ -35,6 +38,7 @@ def run(shader_name, seed):
         raise RuntimeError('surfaceless EGL unavailable')
     context = None
     program = shader = 0
+    query = U()
     buffers = (U * 2)()
     try:
         if not bind('eglBindAPI', U, U)(0x30a2):
@@ -102,18 +106,41 @@ def run(shader_name, seed):
         bind_base = gl('glBindBufferBase', None, U, U, U)
         bind_buffer(target,buffers[0]);buffer_data(target,C.sizeof(data),data,0x88e4);bind_base(target,0,buffers[0])
         bind_buffer(target,buffers[1]);buffer_data(target,C.sizeof(output),None,0x88e8);bind_base(target,1,buffers[1])
-        gl('glDispatchCompute', None, U, U, U)(len(masks),1,1)
-        gl('glMemoryBarrier', None, U)(0x2200)
-        bind_buffer(target,buffers[1]);gl('glGetBufferSubData', None, U, Z, Z, P)(target,0,C.sizeof(output),output)
-        err = gl('glGetError', U)()
-        if err:
-            raise RuntimeError(f'GL error {err:#x}')
-        for i, (actual, want) in enumerate(zip(output,expected)):
-            if actual != want:
-                raise RuntimeError(f'group={i//512} lane={(i//8)%64} word={i%8}: {actual} != {want}')
+        dispatch = gl('glDispatchCompute', None, U, U, U)
+        barrier = gl('glMemoryBarrier', None, U)
+        finish = gl('glFinish', None)
+        get_data = gl('glGetBufferSubData', None, U, Z, Z, P)
+        error = gl('glGetError', U)
+        gl('glGenQueries', None, I, P)(1,C.byref(query))
+        begin = gl('glBeginQuery', None, U, U)
+        end = gl('glEndQuery', None, U)
+        get_query = gl('glGetQueryObjectui64v', None, U, U, P)
+        # Warm-up dispatch, outside samples; force completion before timing.
+        dispatch(len(masks),1,1);barrier(0x2200);finish()
+        timers, wall = [], []
+        for _ in range(repeats):
+            # Poison every output before dispatch to avoid accepting stale results.
+            poison=U(0xdeadbeef)
+            gl('glClearBufferData', None, U, U, U, U, P)(target,0x8236,0x8d94,0x1405,C.byref(poison))
+            finish()
+            start=time.perf_counter_ns()
+            begin(0x88bf,query.value)
+            dispatch(len(masks),1,1);barrier(0x2200)
+            end(0x88bf)
+            elapsed=C.c_uint64()
+            get_query(query.value,0x8866,C.byref(elapsed));finish()
+            wall.append(time.perf_counter_ns()-start);timers.append(elapsed.value)
+            bind_buffer(target,buffers[1]);get_data(target,0,C.sizeof(output),output)
+            err=error()
+            if err: raise RuntimeError(f'GL error {err:#x}')
+            for i, (actual, want) in enumerate(zip(output,expected)):
+                if actual != want:
+                    raise RuntimeError(f'group={i//512} lane={(i//8)%64} word={i%8}: {actual} != {want}')
+        print(json.dumps({'shader':shader_name,'seed':seed,'renderer':renderer,'groups':len(masks),'repeats':repeats,'timer_ns':timers,'wall_ns':wall,'median_timer_ns':statistics.median(timers),'median_wall_ns':statistics.median(wall),'mismatches':0}))
         print(f'groups={len(masks)} lanes={len(masks)*64} words={len(expected)} mismatches=0')
     finally:
         if context:
+            if query.value: gl('glDeleteQueries', None, I, P)(1,C.byref(query))
             if buffers[0]: gl('glDeleteBuffers', None, I, P)(2,buffers)
             if program: gl('glDeleteProgram', None, U)(program)
             if shader: gl('glDeleteShader', None, U)(shader)
@@ -125,10 +152,11 @@ def run(shader_name, seed):
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description=__doc__)
-        parser.add_argument("--shader", choices=("native_wave64_compute.comp", "native_wave64_pingpong.comp"), default="native_wave64_compute.comp")
+        parser.add_argument("--shader", choices=("native_wave64_compute.comp", "native_wave64_pingpong.comp", "native_wave64_blockscan.comp"), default="native_wave64_compute.comp")
         parser.add_argument("--seed", type=int, default=64)
+        parser.add_argument("--repeats", type=int, choices=range(1,21), default=1)
         args = parser.parse_args()
-        run(args.shader, args.seed)
+        run(args.shader, args.seed, args.repeats)
     except (OSError, RuntimeError) as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)

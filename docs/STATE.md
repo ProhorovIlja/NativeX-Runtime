@@ -22,3 +22,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - Added bounded header and section extent validation, conservative overlap rejection, consistent mapped RVA ranges, complete inspected data directory pairs, mapped IAT and export targets, export ordinal aliases and duplicate-name rejection.
 - 17 new malformed-layout controls and two positive controls (aliases and virtual IAT tail) passed; strict GNU C++17 compilation, all four standalone integration checks, and 27/27 Python unit tests passed. The new cases are inside the original PE integration script. No proprietary inputs or Windows executable execution. No fresh MSVC or complete repository build.
+
+## Source-linked PE validation follow-up — 2026-11-24
+
+- Extended the independent host-export fixture with three linked DLLs and two real client EXEs using Clang/LLD 17 and original C source. Five actual client import identities, direct and forwarded named/ordinal exports, bridge dependency order, missing-forwarder provider controls and no modification of client files verified.
+- Strict GNU C++17 build, 27/27 Python unit tests and four integration checks passed. Cross-linked PE metadata only; no Windows execution, complete repository CMake build, ABI proof, or application startup. No proprietary input or upstream code copied. No automatic jobs requested.

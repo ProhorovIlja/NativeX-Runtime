@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 from tools.pe_native_import_binding_plan import build_plan
 from tools.pe_native_export_verify import verify_plan
+from tools.pe_native_package_preflight import build_preflight
 
 
 def checked(command):
@@ -45,7 +46,8 @@ def main(exe):
             checked([clang, "-target", "x86_64-pc-windows-msvc", "-c",
                      str(fixtures / f"{label}.c"), "-o", str(obj)])
             checked([linker, "/dll", "/noentry", "/nodefaultlib", "/machine:x64",
-                     "/def:" + str(fixtures / f"{label}.def"), "/out:" + str(dll), str(obj)])
+                     "/def:" + str(fixtures / f"{label}.def"), "/out:" + str(dll),
+                     "/implib:" + str(out / f"{label}.lib"), str(obj)])
             data = inspect(exe, dll)
             assert data["machine"] == "AMD64" and data["export_dll_name"] == f"{label}.dll", data
             assert data["executable_tested"] is False, data
@@ -77,7 +79,83 @@ def main(exe):
         evidence["modules"] = evidence["modules"][:1]  # host_b missing
         missing = verify_plan(plan, evidence)
         assert missing["summary"]["missing"] == 2 and not missing["all_host_exports_present"], missing
-    print("source-built original Windows x64 DLL EAT, named/ordinal forwarders: PASS (no DLL execution)")
+        # Link an independent bridge DLL and two actual PE executables against
+        # the generated import libraries. No hand-authored import inventories.
+        def compile_object(source, label, extra=()):
+            obj = out / (label + ".obj")
+            checked([clang, "-target", "x86_64-pc-windows-msvc", "-c", *extra,
+                     str(fixtures / source), "-o", str(obj)])
+            return obj
+
+        bridge = out / "host_bridge.dll"
+        checked([linker, "/dll", "/noentry", "/nodefaultlib", "/machine:x64",
+                 "/out:" + str(bridge), "/implib:" + str(out / "host_bridge.lib"),
+                 str(compile_object("host_bridge.c", "bridge")), str(out / "host_b.lib")])
+        host_exports["host_bridge.dll"] = inspect(exe, bridge)
+        assert host_exports["host_bridge.dll"]["import_modules"] == ["host_b.dll"]
+        assert host_exports["host_bridge.dll"]["exports"][0]["name"] == "BridgeCall"
+
+        def identities(report):
+            return {(x["module"].lower(), x["name"], x["ordinal"])
+                    for x in report["import_symbols"]}
+
+        def verify_actual(report, providers):
+            # Identity bindings only for the independently linked test DLLs.
+            # No implicit production mappings, live addresses, or execution.
+            declarations = [{"guest_module": m, "guest_name": name,
+                             "guest_ordinal": ordinal, "action": "host-export",
+                             "host_module": m,
+                             "host_symbol": name if name is not None else f"#{ordinal}"}
+                            for m, name, ordinal in sorted(identities(report),
+                                                           key=lambda x: (x[0], str(x[1]), str(x[2])))]
+            plan = build_plan(report, {"schema": "scarlett-native-import-bindings/v1",
+                                       "bindings": declarations})
+            assert plan["all_resolved"] and all(x["iat_rva"] is not None for x in plan["bindings"])
+            return verify_plan(plan, {"schema": "scarlett-host-pe-export-inventories/v1",
+                                      "modules": [{"module": n, "pe": r} for n, r in providers.items()]})
+
+        def package_for(label, client, providers):
+            return {"schema": "scarlett-native-pe-package/v1", "entry": label,
+                    "images": [{"name": label, "pe": client}] +
+                              [{"name": n, "pe": r} for n, r in providers.items()],
+                    "external_modules": []}
+
+        for forward_only in (False, True):
+            label = "forward_only" if forward_only else "client"
+            client = out / (label + ".exe")
+            obj = compile_object("client.c", label, ("-DFORWARD_ONLY",) if forward_only else ())
+            libs = [out / "host_a.lib"] if forward_only else [out / (n + ".lib") for n in
+                                                             ("host_a", "host_b", "host_bridge")]
+            checked([linker, "/entry:entry", "/subsystem:console", "/nodefaultlib", "/machine:x64",
+                     "/out:" + str(client), str(obj), *map(str, libs)])
+            before = client.read_bytes()
+            report = inspect(exe, client)
+            expected = {("host_a.dll", "ForwardNamed", None), ("host_a.dll", "ForwardOrdinal", None)}
+            if not forward_only:
+                expected |= {("host_a.dll", "NativeCall", None), ("host_b.dll", None, 2),
+                             ("host_bridge.dll", "BridgeCall", None)}
+            assert identities(report) == expected, report["import_symbols"]
+            assert not report["delay_import_symbols"] and report["executable_tested"] is False
+            result = verify_actual(report, host_exports)
+            assert result["all_host_exports_present"] and result["summary"]["forwarded"] == 2, result
+            assert result["summary"]["present"] == (0 if forward_only else 3), result
+            assert not result["abi_verified"] and not result["game_executed"]
+            pkg = build_preflight(package_for(client.name, report, host_exports))
+            assert pkg["all_names_resolved"] and not pkg["provider_exports_verified"], pkg
+            if not forward_only:
+                order = pkg["immediate_dependency_order"]
+                assert order.index("host_b.dll") < order.index("host_bridge.dll") < order.index(client.name)
+                bridge_result = verify_actual(host_exports["host_bridge.dll"], host_exports)
+                assert bridge_result["summary"]["present"] == 1 and bridge_result["all_host_exports_present"]
+            absent = {n: r for n, r in host_exports.items() if n != "host_b.dll"}
+            missing = verify_actual(report, absent)
+            assert missing["summary"]["missing"] == (2 if forward_only else 3), missing
+            missing_pkg = build_preflight(package_for(client.name, report, absent))
+            # A module-only graph cannot see export forwarders. Confirm that
+            # the symbol-level check catches precisely this gap.
+            assert missing_pkg["all_names_resolved"] is forward_only, missing_pkg
+            assert client.read_bytes() == before
+    print("source-built Win64 EXE/DLL import, ordinal, forwarded export and dependency checks: PASS (no execution)")
     return 0
 
 

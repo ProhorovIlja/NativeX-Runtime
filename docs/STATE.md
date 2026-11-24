@@ -64,3 +64,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Bounded Zstandard decoder follow-up — 2026-11-24
 
 - Implemented optional exact-length bounded single-frame Zstandard adapter using installed 1.5.7. Original fixture tests malformed, truncated, excess output, small window, empty, checksum, trailing/concatenated frames, pre-cancel and actual Reader/CoalescedReader integration. Strict GCC 14.2, Clang 17 and GCC ASan/UBSan passed 128 parallel decodes each, zero errors. Sanitizers instrument wrapper, not installed system library. Seven unchanged previous streaming binaries re-run and passed. Full CMake/Windows builds, game codec identification, actual game data and performance remain unverified. Manual CTest registration only; no automatic jobs.
+
+## Shared decode budget follow-up — 2026-11-24
+
+- Added original BudgetedDecoder and end-to-end independent CPU pixel assembly fixture. Strict GCC and Clang and GCC ASan/UBSan passed 1024 concurrent attempts each, 196608-byte peak, max two active decodes, zero observed errors and final committed bytes. All 16384 pixels matched. All eight prior stream/cache/decode fixtures rebuilt and passed. System Zstd not sanitizer-instrumented. No game data, new upstream code, GPU or Windows execution. Exact vendored bcdec header could not be transferred to local environment, so BCn integration not tested. New optional manual CTest registration; no automation.

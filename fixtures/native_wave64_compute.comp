@@ -1,0 +1,35 @@
+#version 430
+// Original portable integer compute fixture. One logical wave per workgroup.
+// Every invocation participates in every barrier, even if logically inactive.
+layout(local_size_x=64) in;
+layout(std430,binding=0) readonly buffer Inputs { uvec4 inputLane[]; };
+layout(std430,binding=1) writeonly buffer Outputs { uint outputWord[]; };
+shared uvec4 scan[64];
+shared uint values[64];
+shared uint live[64];
+void main() {
+    uint lane=gl_LocalInvocationIndex, index=gl_WorkGroupID.x*64u+lane;
+    uvec4 v=inputLane[index]; // value, isLive, predicate, source lane
+    bool isLive=v.y!=0u, pred=isLive && v.z!=0u;
+    values[lane]=v.x; live[lane]=isLive?1u:0u;
+    uint bit=1u<<(lane&31u);
+    scan[lane]=uvec4(isLive?v.x:0u,pred?1u:0u,pred&&lane<32u?bit:0u,pred&&lane>=32u?bit:0u);
+    barrier();
+    for(uint step=1u;step<64u;step*=2u) {
+        uvec4 a=scan[lane], b=uvec4(0u);
+        if(lane>=step) b=scan[lane-step];
+        barrier();
+        scan[lane]=uvec4(a.xy+b.xy,a.zw|b.zw);
+        barrier();
+    }
+    uint valid=0u, value=0u;
+    if(isLive && v.w<64u) { if(live[v.w]!=0u) {valid=1u;value=values[v.w];} }
+    uint o=index*8u;
+    outputWord[o]=isLive?1u:0u;
+    outputWord[o+1u]=valid; outputWord[o+2u]=value;
+    outputWord[o+3u]=isLive?scan[lane].y-(pred?1u:0u):0u;
+    outputWord[o+4u]=isLive?scan[lane].x-v.x:0u;
+    outputWord[o+5u]=isLive?scan[63].x:0u;
+    outputWord[o+6u]=isLive?scan[63].z:0u;
+    outputWord[o+7u]=isLive?scan[63].w:0u;
+}

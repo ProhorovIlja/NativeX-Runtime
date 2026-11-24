@@ -12,6 +12,7 @@ constexpr std::size_t MaxEstimate=2ull*1024u*1024u*1024u;
 struct Work {
     const Bytes* key=nullptr;
     std::size_t estimate=0;
+    Priority priority=Priority::Normal;
     BatchItem outcome{};
     Bytes fresh;
 };
@@ -48,21 +49,24 @@ BatchResult prepare_batch(Cache& cache,const std::vector<BatchRequest>& requests
     std::map<Bytes,std::size_t> indices;std::vector<Work> work;work.reserve(requests.size());
     const auto missing=requests.size();std::vector<std::size_t> mapping(requests.size(),missing);
     for(std::size_t i=0;i<requests.size();++i){const auto& req=requests[i];
-        if(req.key.empty()||req.key.size()>MaxKeyBytes||!req.estimated_bytes)continue;
+        if(req.key.empty()||req.key.size()>MaxKeyBytes||!req.estimated_bytes||!valid_priority(req.priority))continue;
         auto inserted=indices.emplace(req.key,work.size());const auto j=inserted.first->second;mapping[i]=j;
-        if(inserted.second){Work w;w.key=&req.key;w.estimate=req.estimated_bytes;work.push_back(std::move(w));}
-        else {work[j].estimate=std::max(work[j].estimate,req.estimated_bytes);result.items[i].coalesced=true;}
+        if(inserted.second){Work w;w.key=&req.key;w.estimate=req.estimated_bytes;w.priority=req.priority;work.push_back(std::move(w));}
+        else {work[j].estimate=std::max(work[j].estimate,req.estimated_bytes);work[j].priority=promote_priority(work[j].priority,req.priority);result.items[i].coalesced=true;}
     }
     result.unique_jobs=work.size();
+    std::vector<Priority> priorities;priorities.reserve(work.size());
+    for(const auto& w:work)priorities.push_back(w.priority);
+    const auto order=priority_order(priorities);
     // Fixed finite waves: admission is deterministic and cache writes never
     // overlap reads by worker threads. A very large job does not block later jobs.
     std::size_t cursor=0;
     while(cursor<work.size()){
         std::vector<std::size_t> wave;wave.reserve(limits.workers);std::size_t bytes=0;
-        while(cursor<work.size()&&wave.size()<limits.workers){auto& w=work[cursor];
+        while(cursor<work.size()&&wave.size()<limits.workers){auto& w=work[order[cursor]];
             if(w.estimate>limits.estimated_bytes){w.outcome.status=BatchStatus::BudgetExceeded;++cursor;continue;}
             if(w.estimate>limits.estimated_bytes-bytes)break;
-            bytes+=w.estimate;wave.push_back(cursor++);
+            bytes+=w.estimate;wave.push_back(order[cursor++]);
         }
         if(wave.empty())continue;
         ++result.waves;result.peak_wave_jobs=std::max(result.peak_wave_jobs,wave.size());result.peak_estimated_bytes=std::max(result.peak_estimated_bytes,bytes);

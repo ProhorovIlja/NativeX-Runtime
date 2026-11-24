@@ -45,7 +45,7 @@ void reader_integration(){
     require(reader.stats().active==0&&reader.cache_stats().live_bytes==8,"flight leak or incorrect credit");
     first.reset();
     auto retry=reader.read({"b",1,0,8},"fixture");
-    require(retry->status==Status::Ok&&calls==3,"retry after release");
+    require(retry->status==Status::Ok&&calls==2,"retry after release; denied request must not read");
 }
 void concurrent(){
     AssetCache cache(512,8,1024);

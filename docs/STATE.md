@@ -55,3 +55,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - Implemented optional per-cache immutable payload accounting through final consumer release, including evicted and uncached data. Backpressure and retry are integrated with the coalescing adapter. Five prior fixtures rebuilt and passed on GCC.
 - Strict GCC and Clang and GCC ASan/UBSan passed three 4096-operation concurrent tests, each at 1024-byte peak with zero invariant errors and zero final live bytes. No proprietary inputs, upstream code import, Windows execution, full CMake build, GPU or game performance verification. Manual CTest registration only.
+
+## Pre-I/O asset commitment follow-up — 2026-11-24
+
+- Added move-only pre-read reservations and exact live/reserved credit transfer. Six previous fixtures passed strict GCC C++17; new fixture passed GCC 14.2, Clang 17 and GCC ASan/UBSan, three 4096-attempt runs at a 1024-byte cap with zero observed invariant errors and zero final committed bytes. Controlled in-flight denial avoided backend I/O. Prior live-budget test now expects two actual backend calls rather than three.
+- Original code and synthetic fixtures only. No proprietary input, full CMake or Windows execution, real SSD timing, GPU or game performance verification. Manual CTest registration only.

@@ -17,7 +17,10 @@ bool CacheKey::operator<(const CacheKey& other) const noexcept {
            std::tie(other.asset,other.generation,other.offset,other.length);
 }
 struct AssetCache::LiveState {
-    std::atomic<std::size_t> bytes{0};
+    // Cache mutex precedes state mutex, never the reverse. Shared-owner and
+    // ticket destruction take only the state mutex; no state lock spans eviction.
+    std::mutex mutex;
+    std::size_t bytes=0, reserved=0, peak_live=0, peak_committed=0;
 };
 struct AssetCache::TrackedResult {
     // State stays alive after destruction of the cache itself. The aliasing
@@ -29,9 +32,24 @@ struct AssetCache::TrackedResult {
         :state(std::move(s)),result(std::move(r)),size(result.bytes.size()) {}
     ~TrackedResult() {
         std::vector<std::uint8_t>().swap(result.bytes);
-        state->bytes.fetch_sub(size);
+        std::lock_guard<std::mutex> lock(state->mutex);
+        state->bytes-=size;
     }
 };
+AssetCache::Reservation::Reservation(std::shared_ptr<LiveState> state,std::size_t bytes) noexcept
+    :state_(std::move(state)),bytes_(bytes) {}
+AssetCache::Reservation::~Reservation(){release();}
+AssetCache::Reservation::Reservation(Reservation&& other) noexcept
+    :state_(std::move(other.state_)),bytes_(other.bytes_) {other.bytes_=0;}
+AssetCache::Reservation& AssetCache::Reservation::operator=(Reservation&& other) noexcept {
+    if(this!=&other){release();state_=std::move(other.state_);bytes_=other.bytes_;other.bytes_=0;}
+    return *this;
+}
+void AssetCache::Reservation::release() noexcept {
+    if(!state_)return;
+    {std::lock_guard<std::mutex> lock(state_->mutex);state_->reserved-=bytes_;}
+    state_.reset();bytes_=0;
+}
 AssetCache::AssetCache(std::size_t byte_limit,std::size_t entry_limit,std::size_t live_limit)
     :byte_limit_(byte_limit),entry_limit_(entry_limit),live_(std::make_shared<LiveState>()),
      live_limit_(live_limit) {
@@ -57,7 +75,45 @@ std::shared_ptr<const Result> AssetCache::find(const CacheKey& key) {
 CacheInsert AssetCache::insert(const CacheKey& key, Result result) {
     return publish(key,std::move(result)).status;
 }
+AssetCache::Reservation AssetCache::reserve(std::size_t bytes) {
+    if(bytes>MaxRequestBytes)return {};
+    std::lock_guard<std::mutex> lock(mutex_);
+    return reserve_locked(bytes);
+}
+AssetCache::Reservation AssetCache::reserve_locked(std::size_t bytes) {
+    const auto cap=live_limit_?live_limit_:std::numeric_limits<std::size_t>::max();
+    if(bytes>cap){++live_rejections_;return {};}
+    for(;;){
+        {
+            std::lock_guard<std::mutex> lock(live_->mutex);
+            // The combined total never exceeds cap, including unlimited mode.
+            const auto total=live_->bytes+live_->reserved;
+            if(bytes<=cap-total){
+                live_->reserved+=bytes;
+                if(total+bytes>live_->peak_committed)live_->peak_committed=total+bytes;
+                return Reservation(live_,bytes);
+            }
+        }
+        // No state lock held across shared-owner destruction. Recheck actual
+        // credit after each eviction, including weak_ptr ownership races.
+        auto victim=index_.end();
+        for(auto it=lru_.rbegin();it!=lru_.rend();++it){
+            auto candidate=index_.find(*it);
+            if(candidate->second.result.use_count()==1 &&
+               !candidate->second.result->bytes.empty()){victim=candidate;break;}
+        }
+        if(victim==index_.end()){++live_rejections_;return {};}
+        erase(victim);++evictions_;
+    }
+}
 CachePublication AssetCache::publish(const CacheKey& key, Result result) {
+    return publish_impl(key,std::move(result),{});
+}
+CachePublication AssetCache::publish_reserved(const CacheKey& key, Result result, Reservation ticket) {
+    if(ticket.state_!=live_||ticket.bytes_!=key.length)return {CacheInsert::Invalid,{}};
+    return publish_impl(key,std::move(result),std::move(ticket));
+}
+CachePublication AssetCache::publish_impl(const CacheKey& key, Result result, Reservation ticket) {
     if(!valid(key)||result.status!=Status::Ok||result.bytes.size()!=key.length||
        result.checksum!=fnv1a64(result.bytes))return {CacheInsert::Invalid,{}};
     // Right-size even caller-provided vectors with excess capacity. The cap
@@ -73,27 +129,18 @@ CachePublication AssetCache::publish(const CacheKey& key, Result result) {
         touch(existing);
         return {CacheInsert::AlreadyPresent,existing->second.result};
     }
-    const auto cap=live_limit_?live_limit_:std::numeric_limits<std::size_t>::max();
-    if(key.length>cap){++live_rejections_;return {CacheInsert::LiveBudgetExceeded,{}};}
-    // Reclaim only entries currently owned exclusively by the cache. A weak
-    // reference may gain ownership concurrently: recheck the actual counter.
-    // Pressure evictions may occur even if admission ultimately fails.
-    while(live_->bytes.load()>cap-key.length) {
-        auto victim=index_.end();
-        for(auto it=lru_.rbegin();it!=lru_.rend();++it) {
-            auto candidate=index_.find(*it);
-            if(candidate->second.result.use_count()==1 &&
-               !candidate->second.result->bytes.empty()){victim=candidate;break;}
-        }
-        if(victim==index_.end()){++live_rejections_;return {CacheInsert::LiveBudgetExceeded,{}};}
-        erase(victim);++evictions_;
+    if(!ticket)ticket=reserve_locked(key.length);
+    if(!ticket)return {CacheInsert::LiveBudgetExceeded,{}};
+    // Allocation failure leaves the ticket intact for RAII rollback. The
+    // owner constructor is noexcept; transfer follows without double charge.
+    auto owner=std::make_shared<TrackedResult>(live_,std::move(result));
+    {
+        std::lock_guard<std::mutex> state_lock(live_->mutex);
+        live_->reserved-=key.length;
+        live_->bytes+=key.length;
+        if(live_->bytes>live_->peak_live)live_->peak_live=live_->bytes;
     }
-    // Admissions serialize under mutex_; other threads can only release credit.
-    const auto old=live_->bytes.fetch_add(key.length);
-    if(old+key.length>peak_live_bytes_)peak_live_bytes_=old+key.length;
-    std::shared_ptr<TrackedResult> owner;
-    try { owner=std::make_shared<TrackedResult>(live_,std::move(result)); }
-    catch(...) { live_->bytes.fetch_sub(key.length);throw; }
+    ticket.state_.reset();ticket.bytes_=0;
     std::shared_ptr<const Result> value(owner,&owner->result);
     owner.reset();
     if(key.length>byte_limit_)return {CacheInsert::TooLarge,std::move(value)};
@@ -125,7 +172,9 @@ void AssetCache::clear() {
 }
 CacheStats AssetCache::stats() const {
     std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard<std::mutex> state_lock(live_->mutex);
     return {index_.size(),resident_bytes_,byte_limit_,entry_limit_,hits_,misses_,evictions_,
-            live_->bytes.load(),peak_live_bytes_,live_limit_,live_rejections_};
+            live_->bytes,live_->peak_live,live_limit_,live_rejections_,live_->reserved,
+            live_->bytes+live_->reserved,live_->peak_committed};
 }
 } // namespace scarlett::stream

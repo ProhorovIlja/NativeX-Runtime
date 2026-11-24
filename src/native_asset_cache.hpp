@@ -25,12 +25,32 @@ struct CacheStats {
     std::uint64_t hits=0, misses=0, evictions=0;
     std::size_t live_bytes=0, peak_live_bytes=0, live_limit=0;
     std::uint64_t live_rejections=0;
+    std::size_t reserved_bytes=0, committed_bytes=0, peak_committed_bytes=0;
 };
 // Cache ownership is bounded. Shared immutable results held by callers survive
 // eviction. An optional live payload limit also accounts for external owners.
 // Does not coalesce concurrent misses.
 class AssetCache {
+    struct LiveState;
 public:
+    // Move-only reservation. A valid zero-byte reservation is distinct from
+    // denial. Credit returns on destruction, including after cache lifetime.
+    class Reservation {
+    public:
+        Reservation() noexcept = default;
+        ~Reservation();
+        Reservation(Reservation&& other) noexcept;
+        Reservation& operator=(Reservation&& other) noexcept;
+        Reservation(const Reservation&)=delete;
+        Reservation& operator=(const Reservation&)=delete;
+        explicit operator bool() const noexcept {return bool(state_);}
+    private:
+        friend class AssetCache;
+        Reservation(std::shared_ptr<LiveState> state,std::size_t bytes) noexcept;
+        void release() noexcept;
+        std::shared_ptr<LiveState> state_;
+        std::size_t bytes_=0;
+    };
     explicit AssetCache(std::size_t byte_limit, std::size_t entry_limit=1024,
                         std::size_t live_limit=0);
     std::shared_ptr<const Result> find(const CacheKey& key);
@@ -38,12 +58,17 @@ public:
     // Successful publication returns the exact immutable buffer, even if it
     // is immediately evicted. TooLarge returns an uncached valid buffer.
     CachePublication publish(const CacheKey& key, Result result);
+    // Reserve requested bytes before I/O. The ticket is consumed by
+    // publish_reserved, even on failure or duplicate publication.
+    Reservation reserve(std::size_t bytes);
+    CachePublication publish_reserved(const CacheKey& key, Result result, Reservation ticket);
     std::size_t invalidate(const std::string& asset);
     void clear();
     CacheStats stats() const;
 private:
-    struct LiveState;
     struct TrackedResult;
+    Reservation reserve_locked(std::size_t bytes);
+    CachePublication publish_impl(const CacheKey& key, Result result, Reservation ticket);
     struct Entry {
         std::shared_ptr<const Result> result;
         std::list<CacheKey>::iterator lru;
@@ -57,7 +82,6 @@ private:
     const std::size_t byte_limit_, entry_limit_;
     std::shared_ptr<LiveState> live_;
     const std::size_t live_limit_; // zero: unlimited
-    std::size_t peak_live_bytes_=0;
     std::uint64_t live_rejections_=0;
     std::size_t resident_bytes_=0;
     std::uint64_t hits_=0, misses_=0, evictions_=0;

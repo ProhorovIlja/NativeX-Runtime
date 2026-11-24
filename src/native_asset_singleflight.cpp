@@ -49,25 +49,28 @@ std::shared_ptr<const Result> CoalescedReader::read(const CacheKey& key,
             if(flights_.size()>=limit_){++rejected_;return failure(Status::QueueFull);}
             flight=std::make_shared<Flight>();
             flights_.emplace(identity,flight);
-            ++leader_reads_;leader=true;
+            leader=true;
         }
     }
     if(leader) {
         Value value;
         std::exception_ptr error;
         try {
-            // Subscriber cancellation is deliberately not passed to shared I/O.
-            auto result=backend_(Request{path,key.offset,key.length,{},priority});
-            if(result.status==Status::Ok) {
-                auto published=cache_.publish(key,std::move(result));
-                if(published.status==CacheInsert::LiveBudgetExceeded)
-                    value=failure(Status::BudgetExceeded);
-                else {
+            auto ticket=cache_.reserve(key.length);
+            if(!ticket){
+                {std::lock_guard<std::mutex> lock(mutex_);++rejected_;}
+                value=failure(Status::BudgetExceeded);
+            } else {
+                {std::lock_guard<std::mutex> lock(mutex_);++leader_reads_;}
+                // Subscriber cancellation is deliberately not passed to shared I/O.
+                auto result=backend_(Request{path,key.offset,key.length,{},priority});
+                if(result.status==Status::Ok) {
+                    auto published=cache_.publish_reserved(key,std::move(result),std::move(ticket));
                     if(!published.result)throw std::runtime_error("invalid or conflicting immutable asset result");
                     value=std::move(published.result);
+                } else {
+                    value=failure(result.status);
                 }
-            } else {
-                value=failure(result.status);
             }
         } catch(...) {error=std::current_exception();}
         // Settle and retire together under the same lock. Failed reads are

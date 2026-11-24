@@ -6,6 +6,7 @@
 namespace scarlett::stream {
 struct FlightStats {
     std::size_t active=0, limit=0;
+    // leader_reads counts actual backend invocations, rejected includes budget denial.
     std::uint64_t leader_reads=0, joined=0, cache_hits=0, rejected=0;
 };
 // Synchronous caller-side adapter; no threads of its own. Reader (or supplied

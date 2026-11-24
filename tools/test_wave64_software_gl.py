@@ -77,26 +77,32 @@ def run(shader_name, seed, repeats=1):
             gl('glGetProgramInfoLog', None, U, I, P, P)(program, len(log), None, log)
             raise RuntimeError(log.value.decode())
         gl('glUseProgram', None, U)(program)
-        rng = random.Random(seed)
-        masks = [0, (1<<64)-1, 1<<31, 1<<32, 1<<63, M, M<<32, 0x8000000180000001]
-        masks += [rng.getrandbits(64) for _ in range(2048)]
-        inp, expected = [], []
-        for g, mask in enumerate(masks):
-            pred = (1<<64)-1 if g<8 else rng.getrandbits(64)
-            vals = [M if g<8 else rng.getrandbits(32) for _ in range(64)]
-            ballot = mask & pred
-            total = sum(vals[i] for i in range(64) if mask>>i&1)&M
-            count = prefix = 0
-            for i, v in enumerate(vals):
-                active = (mask>>i)&1
-                p = (pred>>i)&1
-                src = [0,31,32,63,64,0xffffffff,rng.randrange(64)][(i+g)%7]
-                inp.extend((v,active,p,src))
-                valid = int(bool(active and src<64 and mask>>src&1))
-                expected.extend((active,valid,vals[src] if valid else 0,count if active else 0,prefix if active else 0,total if active else 0,ballot&M if active else 0,ballot>>32 if active else 0))
-                if active:
-                    prefix = (prefix+v)&M
-                    count += p
+        words = 8
+        if shader_name == "native_wave64_partition.comp":
+            from wave64_partition_vectors import vectors, WORDS
+            masks, inp, expected = vectors(seed)
+            words = WORDS
+        else:
+            rng = random.Random(seed)
+            masks = [0, (1<<64)-1, 1<<31, 1<<32, 1<<63, M, M<<32, 0x8000000180000001]
+            masks += [rng.getrandbits(64) for _ in range(2048)]
+            inp, expected = [], []
+            for g, mask in enumerate(masks):
+                pred = (1<<64)-1 if g<8 else rng.getrandbits(64)
+                vals = [M if g<8 else rng.getrandbits(32) for _ in range(64)]
+                ballot = mask & pred
+                total = sum(vals[i] for i in range(64) if mask>>i&1)&M
+                count = prefix = 0
+                for i, v in enumerate(vals):
+                    active = (mask>>i)&1
+                    p = (pred>>i)&1
+                    src = [0,31,32,63,64,0xffffffff,rng.randrange(64)][(i+g)%7]
+                    inp.extend((v,active,p,src))
+                    valid = int(bool(active and src<64 and mask>>src&1))
+                    expected.extend((active,valid,vals[src] if valid else 0,count if active else 0,prefix if active else 0,total if active else 0,ballot&M if active else 0,ballot>>32 if active else 0))
+                    if active:
+                        prefix = (prefix+v)&M
+                        count += p
         data = (U*len(inp))(*inp)
         output = (U*len(expected))()
         gl('glGenBuffers', None, I, P)(2,buffers)
@@ -135,7 +141,7 @@ def run(shader_name, seed, repeats=1):
             if err: raise RuntimeError(f'GL error {err:#x}')
             for i, (actual, want) in enumerate(zip(output,expected)):
                 if actual != want:
-                    raise RuntimeError(f'group={i//512} lane={(i//8)%64} word={i%8}: {actual} != {want}')
+                    raise RuntimeError(f'group={i//(64*words)} lane={(i//words)%64} word={i%words}: {actual} != {want}')
         print(json.dumps({'shader':shader_name,'seed':seed,'renderer':renderer,'groups':len(masks),'repeats':repeats,'timer_ns':timers,'wall_ns':wall,'median_timer_ns':statistics.median(timers),'median_wall_ns':statistics.median(wall),'mismatches':0}))
         print(f'groups={len(masks)} lanes={len(masks)*64} words={len(expected)} mismatches=0')
     finally:
@@ -152,7 +158,7 @@ def run(shader_name, seed, repeats=1):
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser(description=__doc__)
-        parser.add_argument("--shader", choices=("native_wave64_compute.comp", "native_wave64_pingpong.comp", "native_wave64_blockscan.comp"), default="native_wave64_compute.comp")
+        parser.add_argument("--shader", choices=("native_wave64_compute.comp", "native_wave64_pingpong.comp", "native_wave64_blockscan.comp", "native_wave64_partition.comp"), default="native_wave64_compute.comp")
         parser.add_argument("--seed", type=int, default=64)
         parser.add_argument("--repeats", type=int, choices=range(1,21), default=1)
         args = parser.parse_args()

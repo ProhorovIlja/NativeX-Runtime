@@ -16,6 +16,10 @@ struct CacheKey {
     bool operator<(const CacheKey& other) const noexcept;
 };
 enum class CacheInsert { Inserted, AlreadyPresent, Conflict, Invalid, TooLarge };
+struct CachePublication {
+    CacheInsert status;
+    std::shared_ptr<const Result> result;
+};
 struct CacheStats {
     std::size_t entries=0, resident_bytes=0, byte_limit=0, entry_limit=0;
     std::uint64_t hits=0, misses=0, evictions=0;
@@ -27,6 +31,9 @@ public:
     explicit AssetCache(std::size_t byte_limit, std::size_t entry_limit=1024);
     std::shared_ptr<const Result> find(const CacheKey& key);
     CacheInsert insert(const CacheKey& key, Result result);
+    // Successful publication returns the exact immutable buffer, even if it
+    // is immediately evicted. TooLarge returns an uncached valid buffer.
+    CachePublication publish(const CacheKey& key, Result result);
     std::size_t invalidate(const std::string& asset);
     void clear();
     CacheStats stats() const;

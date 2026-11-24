@@ -46,3 +46,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Completed asset cache follow-up — 2026-11-24
 
 - Added independent bounded LRU cache for completed native asset reads with generation-aware keys and explicit insertion. Reader unchanged. Strict GCC and Clang builds and GCC ASan/UBSan passed; each cache test run avoided 1008 of 1024 Reader submissions in a repetitive synthetic workload and observed no invariant failures across 4096 concurrent operations. Existing three stream fixtures passed on GCC. No proprietary input, Windows execution, full CMake build, real game, SSD timing or GPU test. New manual CTest registration only.
+
+## Single-flight asset reads follow-up — 2026-11-24
+
+- Added original bounded caller-side request coalescing with immutable shared cache publication, priority separation, cancellation isolation, failure retry and exception fan-out. Strict GCC and Clang and GCC ASan/UBSan passed; all four existing stream/cache fixtures passed. Each new test run combined 16 controlled simultaneous callers into one backend invocation and 1024 real Reader logical requests into two submissions. Windows execution, full CMake build, DirectStorage, GPU and real game performance remain unverified. No proprietary inputs or upstream code copied. Manual CTest registration only.

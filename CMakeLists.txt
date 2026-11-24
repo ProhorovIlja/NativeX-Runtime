@@ -271,6 +271,20 @@ foreach(target native_asset_cache native_asset_cache_tests)
 endforeach()
 add_test(NAME native_asset_cache_lru COMMAND native_asset_cache_tests)
 set_tests_properties(native_asset_cache_lru PROPERTIES TIMEOUT 20)
+add_library(native_asset_singleflight STATIC src/native_asset_singleflight.cpp)
+target_link_libraries(native_asset_singleflight PUBLIC native_asset_cache)
+add_executable(native_asset_singleflight_tests fixtures/native_asset_singleflight_tests.cpp)
+target_link_libraries(native_asset_singleflight_tests PRIVATE native_asset_singleflight)
+foreach(target native_asset_singleflight native_asset_singleflight_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_asset_singleflight_coalescing COMMAND native_asset_singleflight_tests)
+set_tests_properties(native_asset_singleflight_coalescing PROPERTIES TIMEOUT 20)
+
 
 
 

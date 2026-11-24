@@ -50,3 +50,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Single-flight asset reads follow-up — 2026-11-24
 
 - Added original bounded caller-side request coalescing with immutable shared cache publication, priority separation, cancellation isolation, failure retry and exception fan-out. Strict GCC and Clang and GCC ASan/UBSan passed; all four existing stream/cache fixtures passed. Each new test run combined 16 controlled simultaneous callers into one backend invocation and 1024 real Reader logical requests into two submissions. Windows execution, full CMake build, DirectStorage, GPU and real game performance remain unverified. No proprietary inputs or upstream code copied. Manual CTest registration only.
+
+## Published payload lifetime budget follow-up — 2026-11-24
+
+- Implemented optional per-cache immutable payload accounting through final consumer release, including evicted and uncached data. Backpressure and retry are integrated with the coalescing adapter. Five prior fixtures rebuilt and passed on GCC.
+- Strict GCC and Clang and GCC ASan/UBSan passed three 4096-operation concurrent tests, each at 1024-byte peak with zero invariant errors and zero final live bytes. No proprietary inputs, upstream code import, Windows execution, full CMake build, GPU or game performance verification. Manual CTest registration only.

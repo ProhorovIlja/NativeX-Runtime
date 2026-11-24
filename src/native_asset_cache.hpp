@@ -15,7 +15,7 @@ struct CacheKey {
     std::size_t length=0;
     bool operator<(const CacheKey& other) const noexcept;
 };
-enum class CacheInsert { Inserted, AlreadyPresent, Conflict, Invalid, TooLarge };
+enum class CacheInsert { Inserted, AlreadyPresent, Conflict, Invalid, TooLarge, LiveBudgetExceeded };
 struct CachePublication {
     CacheInsert status;
     std::shared_ptr<const Result> result;
@@ -23,12 +23,16 @@ struct CachePublication {
 struct CacheStats {
     std::size_t entries=0, resident_bytes=0, byte_limit=0, entry_limit=0;
     std::uint64_t hits=0, misses=0, evictions=0;
+    std::size_t live_bytes=0, peak_live_bytes=0, live_limit=0;
+    std::uint64_t live_rejections=0;
 };
 // Cache ownership is bounded. Shared immutable results held by callers survive
-// eviction and are outside this budget. Does not coalesce concurrent misses.
+// eviction. An optional live payload limit also accounts for external owners.
+// Does not coalesce concurrent misses.
 class AssetCache {
 public:
-    explicit AssetCache(std::size_t byte_limit, std::size_t entry_limit=1024);
+    explicit AssetCache(std::size_t byte_limit, std::size_t entry_limit=1024,
+                        std::size_t live_limit=0);
     std::shared_ptr<const Result> find(const CacheKey& key);
     CacheInsert insert(const CacheKey& key, Result result);
     // Successful publication returns the exact immutable buffer, even if it
@@ -38,6 +42,8 @@ public:
     void clear();
     CacheStats stats() const;
 private:
+    struct LiveState;
+    struct TrackedResult;
     struct Entry {
         std::shared_ptr<const Result> result;
         std::list<CacheKey>::iterator lru;
@@ -49,6 +55,10 @@ private:
     std::list<CacheKey> lru_; // most recently used first
     Index index_;
     const std::size_t byte_limit_, entry_limit_;
+    std::shared_ptr<LiveState> live_;
+    const std::size_t live_limit_; // zero: unlimited
+    std::size_t peak_live_bytes_=0;
+    std::uint64_t live_rejections_=0;
     std::size_t resident_bytes_=0;
     std::uint64_t hits_=0, misses_=0, evictions_=0;
 };

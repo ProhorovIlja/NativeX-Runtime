@@ -284,6 +284,16 @@ foreach(target native_asset_singleflight native_asset_singleflight_tests)
 endforeach()
 add_test(NAME native_asset_singleflight_coalescing COMMAND native_asset_singleflight_tests)
 set_tests_properties(native_asset_singleflight_coalescing PROPERTIES TIMEOUT 20)
+add_executable(native_asset_live_budget_tests fixtures/native_asset_live_budget_tests.cpp)
+target_link_libraries(native_asset_live_budget_tests PRIVATE native_asset_singleflight)
+if(MSVC)
+  target_compile_options(native_asset_live_budget_tests PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_asset_live_budget_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_asset_live_budget COMMAND native_asset_live_budget_tests)
+set_tests_properties(native_asset_live_budget PROPERTIES TIMEOUT 20)
+
 
 
 

@@ -18,12 +18,12 @@ bool CoalescedReader::FlightKey::operator<(const FlightKey& rhs) const noexcept 
     return priority<rhs.priority;
 }
 CoalescedReader::CoalescedReader(Reader& reader,std::size_t cache_bytes,
-                                 std::size_t entries,std::size_t flight_limit)
+                                 std::size_t entries,std::size_t flight_limit,std::size_t live_limit)
     :CoalescedReader([&reader](Request request){return reader.submit(std::move(request)).get();},
-                     cache_bytes,entries,flight_limit) {}
+                     cache_bytes,entries,flight_limit,live_limit) {}
 CoalescedReader::CoalescedReader(ReadOperation read,std::size_t cache_bytes,
-                                 std::size_t entries,std::size_t flight_limit)
-    :backend_(std::move(read)),cache_(cache_bytes,entries),limit_(flight_limit) {
+                                 std::size_t entries,std::size_t flight_limit,std::size_t live_limit)
+    :backend_(std::move(read)),cache_(cache_bytes,entries,live_limit),limit_(flight_limit) {
     if(!backend_||!limit_||limit_>256)throw std::invalid_argument("invalid single-flight configuration");
 }
 std::shared_ptr<const Result> CoalescedReader::read(const CacheKey& key,
@@ -60,8 +60,12 @@ std::shared_ptr<const Result> CoalescedReader::read(const CacheKey& key,
             auto result=backend_(Request{path,key.offset,key.length,{},priority});
             if(result.status==Status::Ok) {
                 auto published=cache_.publish(key,std::move(result));
-                if(!published.result)throw std::runtime_error("invalid or conflicting immutable asset result");
-                value=std::move(published.result);
+                if(published.status==CacheInsert::LiveBudgetExceeded)
+                    value=failure(Status::BudgetExceeded);
+                else {
+                    if(!published.result)throw std::runtime_error("invalid or conflicting immutable asset result");
+                    value=std::move(published.result);
+                }
             } else {
                 value=failure(result.status);
             }

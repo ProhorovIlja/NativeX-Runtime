@@ -18,9 +18,11 @@ class CoalescedReader {
 public:
     using ReadOperation=std::function<Result(Request)>;
     CoalescedReader(Reader& reader,std::size_t cache_bytes,
-                    std::size_t entries=1024,std::size_t flight_limit=64);
+                    std::size_t entries=1024,std::size_t flight_limit=64,
+                    std::size_t live_limit=0);
     CoalescedReader(ReadOperation read,std::size_t cache_bytes,
-                    std::size_t entries=1024,std::size_t flight_limit=64);
+                    std::size_t entries=1024,std::size_t flight_limit=64,
+                    std::size_t live_limit=0);
     // Cancellation is checked before and after waiting; it never cancels
     // another subscriber's read. This is not an interruptible wait API.
     std::shared_ptr<const Result> read(const CacheKey& key,

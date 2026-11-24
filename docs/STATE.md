@@ -80,3 +80,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Windows upload/readback integration source — 2026-11-24
 
 - Added standalone source-generated texture roundtrip fixture using native D3D12 API, WARP or explicit NVIDIA adapter, device footprint comparison and fence-controlled reuse. Windows SDK and device unavailable locally: new fixture is uncompiled/unexecuted. Four portable staging/arena regression executions passed GCC and Clang, 20000 deterministic allocator operations per compiler with no detected conflicts. No automatic workflow created, no game data accessed.
+
+## Persistent PSO blob storage follow-up — 2026-11-24
+
+- Added independent native_pipeline_cache and original fixture. Strict GCC and Clang C++17 and GCC ASan/UBSan passed: 2000 deterministic map operations, 55 save/reopen cycles and 113 corruption controls each (6000/165/339 total), zero observed errors. Scope mismatch, capacity, replacement denial and previous-map preservation verified. Same seed in all runs. No Windows execution, full CMake build, actual driver PSO reuse, game data or performance verification. PortWatch revision ce7280f04b5a362721b8bd3f99043986aaafa7f1 and Sonoma pipeline source reviewed; no upstream code copied. Manual CTest only.

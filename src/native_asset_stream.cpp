@@ -73,9 +73,11 @@ std::uint64_t fnv1a64(const std::vector<std::uint8_t>& bytes) {
     }
     return hash;
 }
-Reader::Reader(std::size_t workers,std::size_t max_queued,std::size_t byte_budget)
-    :max_queued_(max_queued),byte_budget_(byte_budget) {
-    if(workers==0||workers>16||max_queued==0||max_queued>256||byte_budget==0)
+Reader::Reader(std::size_t workers,std::size_t max_queued,std::size_t byte_budget,
+               AdmissionReserve reserve)
+    :max_queued_(max_queued),byte_budget_(byte_budget),reserve_(reserve) {
+    if(workers==0||workers>16||max_queued==0||max_queued>256||byte_budget==0||
+       reserve.bytes>byte_budget||reserve.queued_slots>max_queued)
         throw std::invalid_argument("invalid thread/queue configuration");
     // A failure during partial thread startup must join already launched
     // threads. Otherwise std::thread destructors would call std::terminate.
@@ -107,13 +109,14 @@ std::future<Result> Reader::submit(Request request) {
     if(request.cancelled && request.cancelled->load())return immediate(Status::Cancelled);
     const auto lane=static_cast<std::size_t>(request.priority);
     const auto bytes=request.length;
-    std::packaged_task<Result()> task([this,r=std::move(request),bytes]{
+    const bool noncritical=request.priority!=Priority::FrameCritical;
+    std::packaged_task<Result()> task([this,r=std::move(request),bytes,noncritical]{
         // Release admission credit before packaged_task makes the future ready,
         // including exceptions (e.g. allocation failure).
         Result result;
         try { result=read_exact(r); }
-        catch(...) { finish(bytes); throw; }
-        finish(bytes);
+        catch(...) { finish(bytes,noncritical); throw; }
+        finish(bytes,noncritical);
         return result;
     });
     auto response=task.get_future();
@@ -121,10 +124,15 @@ std::future<Result> Reader::submit(Request request) {
         std::lock_guard<std::mutex> lock(mutex_);
         if(stopping_)return immediate(Status::Stopped);
         if(pending_count_>=max_queued_)return immediate(Status::QueueFull);
+        if(noncritical && pending_[1].size()+pending_[2].size()>=max_queued_-reserve_.queued_slots)
+            return immediate(Status::QueueFull);
         if(bytes>byte_budget_-outstanding_bytes_)return immediate(Status::BudgetExceeded);
+        if(noncritical && bytes>byte_budget_-reserve_.bytes-noncritical_outstanding_bytes_)
+            return immediate(Status::BudgetExceeded);
         pending_[lane].push_back(std::move(task));
         ++pending_count_;
         outstanding_bytes_+=bytes;
+        if(noncritical)noncritical_outstanding_bytes_+=bytes;
         peak_outstanding_bytes_=std::max(peak_outstanding_bytes_,outstanding_bytes_);
     }
     wake_.notify_one();
@@ -132,11 +140,14 @@ std::future<Result> Reader::submit(Request request) {
 }
 ReaderStats Reader::stats() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return {pending_count_,active_count_,outstanding_bytes_,peak_outstanding_bytes_,byte_budget_};
+    return {pending_count_,active_count_,outstanding_bytes_,peak_outstanding_bytes_,byte_budget_,
+            noncritical_outstanding_bytes_,pending_[1].size()+pending_[2].size(),
+            max_queued_,reserve_};
 }
-void Reader::finish(std::size_t bytes) {
+void Reader::finish(std::size_t bytes, bool noncritical) {
     std::lock_guard<std::mutex> lock(mutex_);
     outstanding_bytes_-=bytes;
+    if(noncritical)noncritical_outstanding_bytes_-=bytes;
     --active_count_;
 }
 void Reader::work() {

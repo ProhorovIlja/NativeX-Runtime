@@ -37,3 +37,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - Added configurable requested-byte backpressure for queued and executing reads and synchronized load statistics. Existing weighted queue and read semantics preserved, with earlier cancellation admission and post-hash check.
 - Original streaming test passed on strict GCC 14.2; new concurrent admission test passed on GCC, Clang 17, and GCC ASan/UBSan. Each run made 512 attempts with a 128 KiB test cap; peak stayed at 131072 bytes. No Windows or full CMake build, DirectStorage/io_uring, real-world throughput or proprietary input tested. New CTest registration added for future manual execution; no scheduled jobs requested.
+
+## Critical stream admission follow-up — 2026-11-24
+
+- Added opt-in critical byte and queue-slot reservations, noncritical credit tracking, and synchronized statistics. Default zero reservation preserves previous behavior. Existing reader and budget fixtures passed.
+- Strict GCC/Clang and GCC ASan/UBSan: three 1536-attempt mixed-priority runs, 262144-byte cap, 131072-byte reserve, two reserved slots. No sampled invariant violations; accepted bytes compared against independent data. No Windows or full CMake build, application startup, SSD or GPU performance verification. New manual test registration only; no automation requested.

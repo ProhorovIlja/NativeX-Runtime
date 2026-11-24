@@ -17,16 +17,26 @@ namespace scarlett::stream {
 constexpr std::size_t MaxRequestBytes = 4u * 1024u * 1024u;
 constexpr std::size_t DefaultOutstandingBytes = 128u * 1024u * 1024u;
 enum class Status { Ok, Cancelled, InvalidRange, FileError, ShortRead, QueueFull, Stopped, BudgetExceeded };
+// Opt-in protection against noncritical admissions. A full reservation
+// intentionally disables the corresponding noncritical capacity.
+struct AdmissionReserve {
+    std::size_t bytes = 0;
+    std::size_t queued_slots = 0;
+};
 struct ReaderStats {
     std::size_t queued = 0;
     std::size_t active = 0;
     std::size_t outstanding_bytes = 0;
     std::size_t peak_outstanding_bytes = 0;
     std::size_t byte_budget = 0;
+    std::size_t noncritical_outstanding_bytes = 0;
+    std::size_t noncritical_queued = 0;
+    std::size_t queue_limit = 0;
+    AdmissionReserve reserve{};
 };
-// Priority affects queue ordering only; the OS I/O and CPU decoding remain
-// ordinary portable native calls. Background work is never completely starved
-// by a continuously replenished high-priority queue.
+// Priority affects queue ordering and optional admission reservations; OS I/O
+// and CPU decoding remain ordinary portable native calls. Admitted background
+// work gets weighted dispatch service, not an end-to-end latency guarantee.
 enum class Priority : std::uint8_t { FrameCritical=0, Normal=1, Background=2 };
 struct QueueChoice {
     bool found=false;
@@ -58,7 +68,8 @@ std::uint64_t fnv1a64(const std::vector<std::uint8_t>& bytes);
 class Reader {
 public:
     explicit Reader(std::size_t workers=2,std::size_t max_queued=64,
-                    std::size_t byte_budget=DefaultOutstandingBytes);
+                    std::size_t byte_budget=DefaultOutstandingBytes,
+                    AdmissionReserve reserve={});
     ~Reader();
     Reader(const Reader&)=delete;
     Reader& operator=(const Reader&)=delete;
@@ -68,7 +79,7 @@ public:
     ReaderStats stats() const;
 private:
     void work();
-    void finish(std::size_t bytes);
+    void finish(std::size_t bytes, bool noncritical);
     mutable std::mutex mutex_;
     std::condition_variable wake_;
     std::array<std::deque<std::packaged_task<Result()>>,3> pending_{};
@@ -79,6 +90,8 @@ private:
     std::size_t outstanding_bytes_=0;
     std::size_t peak_outstanding_bytes_=0;
     std::size_t byte_budget_;
+    AdmissionReserve reserve_;
+    std::size_t noncritical_outstanding_bytes_=0;
     std::size_t schedule_slot_=0;
     bool stopping_=false;
 };

@@ -51,7 +51,20 @@ class PE {
   uint16_t u16(size_t p) const { need(p,2); return uint16_t(b[p]) | (uint16_t(b[p+1])<<8); }
   uint32_t u32(size_t p) const { return uint32_t(u16(p)) | (uint32_t(u16(p+2))<<16); }
   uint64_t u64(size_t p) const { return uint64_t(u32(p)) | (uint64_t(u32(p+4))<<32); }
+  // A range must belong to one declared region. Never use bytes from a
+  // neighboring file region just because they happen to be contiguous.
+  bool mapped_range(uint64_t addr,uint64_t len) const {
+    if(!len || addr>=size_of_image || len>size_of_image-addr)return false;
+    if(addr<headers)return len<=headers-addr;
+    for(const auto& section:sections){
+      const uint64_t span=std::max(section.size,section.len);
+      if(addr>=section.va && addr-section.va<span &&
+         len<=span-(addr-section.va))return true;
+    }
+    return false;
+  }
   size_t rva(uint32_t addr,size_t len) const {
+    if(!mapped_range(addr,len))throw std::runtime_error("RVA outside mapped range");
     if(addr<headers){need(addr,len);return addr;}
     for(auto s:sections){
       if(addr<s.va) continue;
@@ -106,10 +119,9 @@ class PE {
       if(address>UINT32_MAX || iat_address>UINT32_MAX)
         throw std::runtime_error("import lookup or IAT slot RVA overflow");
       // The IAT is a *memory* RVA and might point into the virtual tail
-      // of a section. Check SizeOfImage, not just file-backed bytes.
-      if(iat_address && (iat_address>size_of_image ||
-                         size_of_image-iat_address<8u))
-        throw std::runtime_error("import IAT slot exceeds image bounds");
+      // of a section. Require a declared memory region, not file bytes.
+      if(iat_address && !mapped_range(iat_address,8u))
+        throw std::runtime_error("import IAT slot outside mapped range");
       const uint64_t thunk=u64(rva(uint32_t(address),8));
       if(!thunk)return;
       if(i==8192||destination.size()>=32768)
@@ -244,18 +256,45 @@ public:
     if(size_of_image==0u || headers>size_of_image)
       throw std::runtime_error("invalid PE32+ SizeOfImage");
     size_t sh=opt+optlen;need(sh,size_t(count)*40);
+    if(headers<sh+size_t(count)*40 || headers>b.size())
+      throw std::runtime_error("invalid PE SizeOfHeaders");
+    const uint32_t directory_count=u32(opt+108);
+    if(directory_count>(optlen-112u)/8u)
+      throw std::runtime_error("PE directory count exceeds optional header");
     for(unsigned i=0;i<count;i++){
       size_t p=sh+i*40;std::string name;
       for(unsigned j=0;j<8&&b[p+j];j++)name.push_back(char(b[p+j]));
       names.push_back(name);
-      sections.push_back({u32(p+12),u32(p+8),u32(p+20),u32(p+16)});
+      const Section section{u32(p+12),u32(p+8),u32(p+20),u32(p+16)};
+      const uint64_t span=std::max(section.size,section.len);
+      if(span && (section.va<headers || uint64_t(section.va)+span>size_of_image))
+        throw std::runtime_error("PE section virtual range outside image");
+      if(section.len && (section.raw<headers || uint64_t(section.raw)+section.len>b.size()))
+        throw std::runtime_error("PE section raw range outside file");
+      // Conservative inspection policy: reject ambiguous overlapping regions.
+      // This is not a claim to reproduce every Windows loader acceptance rule.
+      const auto overlaps=[](uint64_t a,uint64_t an,uint64_t b,uint64_t bn){
+        return an && bn && a<b+bn && b<a+an;
+      };
+      for(const auto& previous:sections){
+        if(overlaps(section.va,span,previous.va,std::max(previous.size,previous.len)))
+          throw std::runtime_error("overlapping PE virtual sections");
+        if(overlaps(section.raw,section.len,previous.raw,previous.len))
+          throw std::runtime_error("overlapping PE raw sections");
+      }
+      sections.push_back(section);
     }
     // Directory tuples are RVA+size; a claimed directory must fit the optional header.
     const auto dir=[&](unsigned index)->std::pair<uint32_t,uint32_t>{
-      unsigned count=u32(opt+108);
-      if(count<=index)return {0,0};
-      if(optlen<112+8*(index+1))throw std::runtime_error("truncated PE data directory");
-      return {u32(opt+112+8*index),u32(opt+116+8*index)};
+      if(directory_count<=index)return {0,0};
+      const uint32_t addr=u32(opt+112+8*index), length=u32(opt+116+8*index);
+      // Only RVA-based directories consumed by this parser use this helper.
+      // The certificate directory is a file offset and is not inspected.
+      if((addr==0)!=(length==0))throw std::runtime_error(
+          index==5u?"incomplete relocation directory":"incomplete PE data directory");
+      if(addr && !mapped_range(addr,length))
+        throw std::runtime_error("PE data directory outside mapped range");
+      return {addr,length};
     };
     // Export directory: name/ordinal/forwarder metadata only, never resolve or load it.
     const auto exp=dir(0);
@@ -265,7 +304,7 @@ public:
       const uint32_t base=u32(p+16), fn_count=u32(p+20), name_count=u32(p+24);
       const uint32_t fn_rva=u32(p+28), names_rva=u32(p+32), ord_rva=u32(p+36);
       if(u32(p+12))export_module=module(u32(p+12));
-      if(fn_count>8192 || name_count>4096 || name_count>fn_count ||
+      if(fn_count>8192 || name_count>4096 ||
          uint64_t(base)+fn_count>uint64_t(UINT32_MAX)+1)
         throw std::runtime_error("unsupported export counts");
       size_t functions=0, name_table=0, ordinal_table=0;
@@ -287,11 +326,13 @@ public:
         if(!target)continue;
         const bool forwarded=uint64_t(target)>=exp.first &&
             uint64_t(target)<uint64_t(exp.first)+exp.second;
-        if(!forwarded && target>=size_of_image)
+        if(!forwarded && !mapped_range(target,1))
           throw std::runtime_error("export target outside PE image");
         export_addresses.push_back({uint32_t(uint64_t(base)+i),target,
                                     forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
       }
+      // Several distinct public names can refer to a single EAT index.
+      // Do not confuse name count with the number of ordinal slots.
       for(uint32_t i=0;i<name_count;i++){
         const uint16_t index=u16(ordinal_table+uint64_t(i)*2);
         if(index>=fn_count)throw std::runtime_error("invalid export ordinal index");
@@ -301,11 +342,16 @@ public:
         if(!target)throw std::runtime_error("named export references empty EAT slot");
         const bool forwarded=uint64_t(target)>=exp.first &&
             uint64_t(target)<uint64_t(exp.first)+exp.second;
-        exports.push_back({module(export_name_rva),ordinal,forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
+        const auto symbol=module(export_name_rva);
+        if(symbol.empty() || std::any_of(exports.begin(),exports.end(),
+              [&](const Export& item){return item.name==symbol;}))
+          throw std::runtime_error("empty or duplicate PE export name");
+        exports.push_back({symbol,ordinal,forwarded?export_forwarder(target,exp.first,exp.second):std::string{}});
       }
     }
-    if(u32(opt+108)>=2){
-      uint32_t addr=u32(opt+120),length=u32(opt+124);
+    {
+      const auto imp=dir(1);
+      const uint32_t addr=imp.first,length=imp.second;
       if(addr&&length){
         bool done=false;
         for(uint64_t i=0;i<std::min<uint64_t>(1024,length/20);++i){
@@ -375,12 +421,7 @@ public:
             throw std::runtime_error("DIR64 relocation target outside image");
           // Accept virtual zero-fill as well as file-backed mapped sections;
           // a metadata target in an unmapped image gap is not valid.
-          bool mapped=target+8u<=headers;
-          for(const auto& section:sections){
-            if(target>=section.va && target+8u<=uint64_t(section.va)+
-                 std::max(section.size,section.len)){mapped=true;break;}
-          }
-          if(!mapped)throw std::runtime_error("DIR64 relocation target outside mapped range");
+          if(!mapped_range(target,8u))throw std::runtime_error("DIR64 relocation target outside mapped range");
           ++relocation_dir64;
         }
         consumed+=block;
@@ -458,7 +499,9 @@ public:
   std::string json(bool compact=false) const{
     std::ostringstream out;
     out<<"{\"kind\":\"pe32plus-metadata\",\"machine\":\"AMD64\",\"sections\":"<<sections.size()
-       <<",\"entry_rva\":"<<entry<<",\"image_base\":"<<image_base<<",\"import_modules\":[";
+       <<",\"entry_rva\":"<<entry<<",\"image_base\":"<<image_base
+       <<",\"size_of_image\":"<<size_of_image<<",\"size_of_headers\":"<<headers
+       <<",\"section_ranges_checked\":true,\"import_modules\":[";
     for(size_t i=0;i<imports.size();i++)out<<(i?",":"")<<quote(imports[i]);
     out<<"],\"delay_import_modules\":[";
     for(size_t i=0;i<delay_imports.size();i++)out<<(i?",":"")<<quote(delay_imports[i]);

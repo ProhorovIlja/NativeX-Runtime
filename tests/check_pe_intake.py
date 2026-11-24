@@ -231,6 +231,62 @@ def main(exe):
         assert report['import_symbols'][0]['lookup_rva']==0x1250
 
 
+        # Declared header and section extents are validated before RVA reads.
+        assert info['section_ranges_checked'] and info['size_of_image']==0x2000
+        assert info['size_of_headers']==0x200
+        opt, sh = 0x98, 0x98+0xF0
+        def expect_bad_layout(label, changes, diagnostic):
+            bad=bytearray(original)
+            for offset, fmt, value in changes:
+                struct.pack_into(fmt,bad,offset,value)
+            q=d/(label+'.exe');q.write_bytes(bad)
+            result=subprocess.run([exe,str(q)],capture_output=True,text=True)
+            assert result.returncode==2 and diagnostic in result.stderr,(label,result.stderr)
+        cases=[
+            ('short headers',[(opt+60,'<I',0x180)],'SizeOfHeaders'),
+            ('headers beyond file',[(opt+60,'<I',0xA00)],'SizeOfHeaders'),
+            ('raw section truncated',[(sh+16,'<I',0x800)],'raw range'),
+            ('raw section in headers',[(sh+20,'<I',0x100)],'raw range'),
+            ('virtual section in headers',[(sh+12,'<I',0x100)],'virtual range'),
+            ('virtual section out of image',[(sh+8,'<I',0x2000)],'virtual range'),
+            ('directories exceed optional header',[(opt+108,'<I',17)],'directory count'),
+            ('export tuple incomplete',[(opt+116,'<I',0)],'incomplete PE data directory'),
+            ('import tuple incomplete',[(opt+120,'<I',0)],'incomplete PE data directory'),
+            ('delay tuple incomplete',[(opt+112+13*8+4,'<I',0)],'incomplete PE data directory'),
+            ('directory crosses section',[(opt+116,'<I',0x400)],'directory outside mapped range'),
+            ('IAT in unmapped gap',[(0x210,'<I',0x1700)],'IAT slot outside mapped range'),
+            ('export in unmapped gap',[(0x380,'<I',0x1700)],'export target'),
+            ('duplicate export name',[(0x390,'<I',0x11B4)],'duplicate PE export name'),
+            ('header read crosses boundary',[(0x450,'<Q',0x1ff)],'RVA outside mapped range'),
+        ]
+        for label, changes, diagnostic in cases:
+            expect_bad_layout(label,changes,diagnostic)
+        # Extra section header fits in the declared 0x200-byte header region.
+        for label, va, raw, diagnostic in (
+            ('virtual overlap',0x1200,0x600,'overlapping PE virtual sections'),
+            ('raw overlap',0x1600,0x400,'overlapping PE raw sections'),
+        ):
+            expect_bad_layout(label,[(0x86,'<H',2),
+                (sh+40+8,'<I',0x100),(sh+40+12,'<I',va),
+                (sh+40+16,'<I',0x100),(sh+40+20,'<I',raw)],diagnostic)
+        # Three distinct names can identify two ordinal slots, including
+        # two aliases to the same EAT entry. No functions are executed.
+        aliases=bytearray(original)
+        struct.pack_into('<I',aliases,0x340+20,2)
+        struct.pack_into('<H',aliases,0x39c,1)
+        q=d/'aliased exports.exe';q.write_bytes(aliases)
+        report=json.loads(subprocess.run([exe,str(q)],capture_output=True,text=True,check=True).stdout)
+        assert len(report['export_addresses'])==2 and len(report['exports'])==3
+        assert [x['ordinal'] for x in report['exports']]==[5,6,6]
+        # A virtual tail is mapped memory, but is not readable file data.
+        tail=bytearray(original)
+        struct.pack_into('<I',tail,sh+8,0x800)
+        struct.pack_into('<I',tail,0x210,0x1500)
+        q=d/'virtual IAT tail.exe';q.write_bytes(tail)
+        report=json.loads(subprocess.run([exe,str(q)],capture_output=True,text=True,check=True).stdout)
+        assert [x['iat_rva'] for x in report['import_symbols']]==[0x1500,0x1508]
+        assert p.read_bytes()==original
+
         # V1 metadata failures are rejected without loading the executable.
         for offset,value in (
             (0x550,0x00), # invalid version zero

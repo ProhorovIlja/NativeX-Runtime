@@ -17,3 +17,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 - Fixed full dependency closure through nested delay-loaded modules; four additional regression tests cover delayed missing dependencies, optional immediate cycles, delay-only cycles and precedence of startup paths.
 - Added read-only DIR64 target bounds and base relocation slot/type inventory, with malformed-range negative controls and unsupported-type reporting.
 - Strict GNU C++17 build and four standalone PE checks passed, with 27/27 Python unit tests. Original synthetic fixtures and source-built DLL metadata only. No Windows execution or new CI runs; no proprietary inputs.
+
+## Section/RVA/export correctness follow-up — 2026-11-24
+
+- Added bounded header and section extent validation, conservative overlap rejection, consistent mapped RVA ranges, complete inspected data directory pairs, mapped IAT and export targets, export ordinal aliases and duplicate-name rejection.
+- 17 new malformed-layout controls and two positive controls (aliases and virtual IAT tail) passed; strict GNU C++17 compilation, all four standalone integration checks, and 27/27 Python unit tests passed. The new cases are inside the original PE integration script. No proprietary inputs or Windows executable execution. No fresh MSVC or complete repository build.

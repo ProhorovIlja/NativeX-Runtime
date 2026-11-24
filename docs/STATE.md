@@ -42,3 +42,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - Added opt-in critical byte and queue-slot reservations, noncritical credit tracking, and synchronized statistics. Default zero reservation preserves previous behavior. Existing reader and budget fixtures passed.
 - Strict GCC/Clang and GCC ASan/UBSan: three 1536-attempt mixed-priority runs, 262144-byte cap, 131072-byte reserve, two reserved slots. No sampled invariant violations; accepted bytes compared against independent data. No Windows or full CMake build, application startup, SSD or GPU performance verification. New manual test registration only; no automation requested.
+
+## Completed asset cache follow-up — 2026-11-24
+
+- Added independent bounded LRU cache for completed native asset reads with generation-aware keys and explicit insertion. Reader unchanged. Strict GCC and Clang builds and GCC ASan/UBSan passed; each cache test run avoided 1008 of 1024 Reader submissions in a repetitive synthetic workload and observed no invariant failures across 4096 concurrent operations. Existing three stream fixtures passed on GCC. No proprietary input, Windows execution, full CMake build, real game, SSD timing or GPU test. New manual CTest registration only.

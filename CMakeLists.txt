@@ -258,6 +258,20 @@ else()
 endif()
 add_test(NAME native_asset_stream_critical_reserve COMMAND native_asset_stream_reserve_tests)
 set_tests_properties(native_asset_stream_critical_reserve PROPERTIES TIMEOUT 20)
+add_library(native_asset_cache STATIC src/native_asset_cache.cpp)
+target_link_libraries(native_asset_cache PUBLIC native_asset_stream)
+add_executable(native_asset_cache_tests fixtures/native_asset_cache_tests.cpp)
+target_link_libraries(native_asset_cache_tests PRIVATE native_asset_cache)
+foreach(target native_asset_cache native_asset_cache_tests)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /WX /permissive-)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
+  endif()
+endforeach()
+add_test(NAME native_asset_cache_lru COMMAND native_asset_cache_tests)
+set_tests_properties(native_asset_cache_lru PROPERTIES TIMEOUT 20)
+
 
 
 

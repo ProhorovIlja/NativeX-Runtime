@@ -27,3 +27,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - Extended the independent host-export fixture with three linked DLLs and two real client EXEs using Clang/LLD 17 and original C source. Five actual client import identities, direct and forwarded named/ordinal exports, bridge dependency order, missing-forwarder provider controls and no modification of client files verified.
 - Strict GNU C++17 build, 27/27 Python unit tests and four integration checks passed. Cross-linked PE metadata only; no Windows execution, complete repository CMake build, ABI proof, or application startup. No proprietary input or upstream code copied. No automatic jobs requested.
+
+## Symbol dependency closure follow-up — 2026-11-24
+
+- New original read-only combined package/symbol closure checker, including forwarder-induced provider imports, missing symbol evidence and startup/delayed reachability. No runtime execution or proprietary material.
+- 40/40 Python tests (13 new) and all four PE integration checks passed, including source-linked Win64 fixtures. Strict GCC C++17 build passed. This validates metadata, not ABI or application startup. No automatic jobs requested.

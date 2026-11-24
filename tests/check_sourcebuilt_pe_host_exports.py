@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 from tools.pe_native_import_binding_plan import build_plan
 from tools.pe_native_export_verify import verify_plan
 from tools.pe_native_package_preflight import build_preflight
+from tools.pe_native_symbol_closure import build_symbol_closure
 
 
 def checked(command):
@@ -154,6 +155,13 @@ def main(exe):
             # A module-only graph cannot see export forwarders. Confirm that
             # the symbol-level check catches precisely this gap.
             assert missing_pkg["all_names_resolved"] is forward_only, missing_pkg
+            full = build_symbol_closure(package_for(client.name, report, host_exports))
+            assert full["all_symbols_present"] and not full["execution_verified"], full
+            if forward_only:
+                assert full["forwarder_added_images"] == ["host_b.dll"], full
+            incomplete = build_symbol_closure(package_for(client.name, report, absent))
+            assert not incomplete["startup_symbols_present"], incomplete
+            assert incomplete["descriptor_only_all_names_resolved"] is forward_only, incomplete
             assert client.read_bytes() == before
     print("source-built Win64 EXE/DLL import, ordinal, forwarded export and dependency checks: PASS (no execution)")
     return 0

@@ -68,3 +68,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Shared decode budget follow-up — 2026-11-24
 
 - Added original BudgetedDecoder and end-to-end independent CPU pixel assembly fixture. Strict GCC and Clang and GCC ASan/UBSan passed 1024 concurrent attempts each, 196608-byte peak, max two active decodes, zero observed errors and final committed bytes. All 16384 pixels matched. All eight prior stream/cache/decode fixtures rebuilt and passed. System Zstd not sanitizer-instrumented. No game data, new upstream code, GPU or Windows execution. Exact vendored bcdec header could not be transferred to local environment, so BCn integration not tested. New optional manual CTest registration; no automation.
+
+## Portable texture upload staging follow-up — 2026-11-24
+
+- Added independent CPU texture staging with mip/array layout, BC block geometry, aligned zero padding, cap and source validation. GCC and Clang strict C++17 and GCC ASan/UBSan passed both staging and extended decode-budget fixtures (six executions). Integrated 16384 CPU pixels and all staged bytes matched; 3072 concurrent decode attempts across three runs, no budget invariant errors. System Zstd not sanitizer-instrumented. No actual GPU, Windows, complete CMake build, BC decoding or game execution tested. PortWatch source revision unchanged; Sonoma pipeline source reviewed, not imported. Manual CTest registration only; no automation.

@@ -1,6 +1,7 @@
 // Original source-generated RGBA8 pages; CPU pixel assembly, not GPU rendering.
 #include "native_asset_decode_budget.hpp"
 #include "native_asset_singleflight.hpp"
+#include "native_texture_upload.hpp"
 #include <algorithm>
 #include <chrono>
 #include <fstream>
@@ -63,6 +64,15 @@ void integration(){
     std::vector<std::uint8_t> image;image.reserve(page*2);
     image.insert(image.end(),x->bytes.begin(),x->bytes.end());image.insert(image.end(),y->bytes.begin(),y->bytes.end());
     for(std::size_t i=0;i<image.size();i+=4){const bool is_top=i<page;require(image[i]==(is_top?255:0)&&image[i+1]==(is_top?0:255)&&image[i+2]==0&&image[i+3]==255,"assembled pixel mismatch");}
+    // Prepare two original RGBA8 array layers for a future device copy.
+    // The independent image assembled above is the byte oracle.
+    auto staged=upload::stage({upload::Format::Rgba8,128,64,1,2},
+        {{x->bytes.data(),x->bytes.size(),width*4},{y->bytes.data(),y->bytes.size(),width*4}},page*2);
+    require(staged.plan.status==upload::Status::Ready&&staged.plan.subresources.size()==2&&
+            staged.plan.subresources[1].offset==page&&staged.bytes==image,"staging pixel mismatch");
+    auto rejected_stage=upload::stage({upload::Format::Rgba8,128,64,1,2},
+        {{x->bytes.data(),x->bytes.size(),width*4},{y->bytes.data(),y->bytes.size()-1,width*4}},page*2);
+    require(rejected_stage.plan.status==upload::Status::InvalidSource&&rejected_stage.bytes.empty(),"partial staged payload");
     require(decoder.stats().committed_bytes==page*2,"decoded pages not charged");
     require(reader.read({"pages",1,0,a.bytes.size()},path)==first&&reader.stats().leader_reads==2,"compressed cache reuse");
     x.reset();y.reset();require(decoder.stats().committed_bytes==0,"page credit leak");

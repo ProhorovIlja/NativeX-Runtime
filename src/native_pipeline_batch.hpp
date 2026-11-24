@@ -5,11 +5,11 @@
 namespace scarlett::pipeline {
 struct BatchRequest { Bytes key; std::size_t estimated_bytes=0; Priority priority=Priority::Normal; };
 struct BatchLimits { std::size_t workers=4, estimated_bytes=256u*1024u*1024u; };
-enum class BatchStatus { Invalid, BudgetExceeded, Completed, CallbackException };
-struct BatchItem { BatchStatus status=BatchStatus::Invalid; BuildReport build{}; bool coalesced=false; };
+enum class BatchStatus { Invalid, BudgetExceeded, Completed, CallbackException, Suppressed };
+struct BatchItem { BatchStatus status=BatchStatus::Invalid; BuildReport build{}; bool coalesced=false; bool failure_remembered=false; };
 struct BatchResult {
     std::vector<BatchItem> items;
-    std::size_t unique_jobs=0, waves=0, peak_wave_jobs=0, peak_estimated_bytes=0;
+    std::size_t unique_jobs=0, waves=0, peak_wave_jobs=0, peak_estimated_bytes=0, suppressed_jobs=0;
 };
 using BatchCreate=std::function<Attempt(const Bytes& key,const Bytes* cached)>;
 // Finite synchronous batch: joins all workers before returning. No persistent

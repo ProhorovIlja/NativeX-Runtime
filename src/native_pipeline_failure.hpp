@@ -1,6 +1,6 @@
 // Explicit, bounded, process-local negative cache for deterministic translation refusal.
 #pragma once
-#include "native_pipeline_build.hpp"
+#include "native_pipeline_batch.hpp"
 #include <stdexcept>
 #include <utility>
 namespace scarlett::pipeline {
@@ -9,6 +9,7 @@ namespace scarlett::pipeline {
 enum class FailureClass { None, DeterministicUnsupported };
 struct ClassifiedAttempt { Attempt attempt; FailureClass failure=FailureClass::None; };
 using ClassifiedCreate=std::function<ClassifiedAttempt(const Bytes*)>;
+using ClassifiedBatchCreate=std::function<ClassifiedAttempt(const Bytes&,const Bytes*)>;
 struct GuardReport { BuildReport build{}; bool suppressed=false, remembered=false; };
 // Single owner, no reentrant callbacks. Instance lifetime defines compatibility
 // scope (adapter, driver, translator, feature flags). No disk persistence of failures.
@@ -24,7 +25,7 @@ public:
     GuardReport create(const Bytes& key,const ClassifiedCreate& op) {
         GuardReport report;
         if(key.empty()||key.size()>MaxKeyBytes||!op)return report;
-        if(failures_.find(key)!=failures_.end()){
+        if(known(key)){
             report.suppressed=true;report.build.path=BuildPath::Failed;return report;
         }
         bool permanent=false;
@@ -33,9 +34,7 @@ public:
             permanent=!cached&&a.attempt.status==AttemptStatus::Failed&&a.failure==FailureClass::DeterministicUnsupported;
             return std::move(a.attempt);
         });
-        if(permanent&&report.build.path==BuildPath::Failed&&failures_.size()<limit_&&key.size()<=budget_-bytes_){
-            if(failures_.emplace(key,true).second){bytes_+=key.size();report.remembered=true;}
-        }
+        if(permanent&&report.build.path==BuildPath::Failed)report.remembered=remember(key);
         return report;
     }
     bool forget(const Bytes& key){auto i=failures_.find(key);if(i==failures_.end())return false;bytes_-=i->first.size();failures_.erase(i);return true;}
@@ -46,8 +45,20 @@ public:
     Status load(const std::filesystem::path& file){auto s=cache_.load(file);if(s==Status::Ok)clear_failures();return s;}
     Status save(const std::filesystem::path& file) const{return cache_.save(file);}
 private:
+    friend BatchResult prepare_guarded_batch(GuardedPipelineCache&,const std::vector<BatchRequest>&,const ClassifiedBatchCreate&,BatchLimits);
+    bool known(const Bytes& key) const {return failures_.find(key)!=failures_.end();}
+    bool remember(const Bytes& key){
+        if(failures_.size()>=limit_||key.size()>budget_-bytes_)return false;
+        if(!failures_.emplace(key,true).second)return false;
+        bytes_+=key.size();return true;
+    }
     Cache cache_;
     std::map<Bytes,bool> failures_;
     std::size_t limit_,budget_,bytes_=0;
 };
+// Same finite admission rules as prepare_batch. Known failures consume no
+// worker or estimated-byte budget; invalid requests still return Invalid.
+// Negative cache reads/writes stay on the caller thread.
+BatchResult prepare_guarded_batch(GuardedPipelineCache& cache,const std::vector<BatchRequest>& requests,
+                                  const ClassifiedBatchCreate& create,BatchLimits limits={});
 }

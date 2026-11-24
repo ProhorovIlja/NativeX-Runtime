@@ -1,4 +1,4 @@
-#include "native_pipeline_batch.hpp"
+#include "native_pipeline_failure.hpp"
 #include <algorithm>
 #include <map>
 #include <future>
@@ -15,22 +15,25 @@ struct Work {
     Priority priority=Priority::Normal;
     BatchItem outcome{};
     Bytes fresh;
+    bool permanent=false;
 };
 struct Join {
     std::vector<std::thread> threads;
     ~Join(){for(auto& t:threads)if(t.joinable())t.join();}
 };
-void prepare(Work& w,const Bytes* cached,const BatchCreate& create){
+void prepare(Work& w,const Bytes* cached,const ClassifiedBatchCreate& create){
     auto& o=w.outcome;auto& r=o.build;
     o.status=BatchStatus::Completed;r.path=BuildPath::Failed;
     try {
         if(cached){
-            ++r.attempts;auto a=create(*w.key,cached);
+            ++r.attempts;auto a=create(*w.key,cached).attempt;
             if(a.status==AttemptStatus::Created){r.path=BuildPath::Hit;return;}
             if(a.status!=AttemptStatus::CacheRejected)return;
             r.cache_rejected=true;
         }
-        ++r.attempts;auto a=create(*w.key,nullptr);
+        ++r.attempts;auto classified=create(*w.key,nullptr);
+        auto& a=classified.attempt;
+        w.permanent=a.status==AttemptStatus::Failed&&classified.failure==FailureClass::DeterministicUnsupported;
         if(a.status!=AttemptStatus::Created)return;
         r.path=r.cache_rejected?BuildPath::Rebuilt:BuildPath::Cold;
         if(a.fresh_blob.empty())r.write=WriteStatus::Unavailable;
@@ -38,9 +41,10 @@ void prepare(Work& w,const Bytes* cached,const BatchCreate& create){
         else w.fresh=std::move(a.fresh_blob);
     }catch(...){o.status=BatchStatus::CallbackException;r.path=BuildPath::Failed;}
 }
-}
-BatchResult prepare_batch(Cache& cache,const std::vector<BatchRequest>& requests,
-                          const BatchCreate& create,BatchLimits limits){
+using Lookup=std::function<bool(const Bytes&)>;
+BatchResult prepare_impl(Cache& cache,const std::vector<BatchRequest>& requests,
+                         const ClassifiedBatchCreate& create,BatchLimits limits,
+                         const Lookup& known,const Lookup& remember){
     if(!create||!limits.workers||limits.workers>32||!limits.estimated_bytes||limits.estimated_bytes>MaxEstimate||requests.size()>MaxRequests)
         throw std::invalid_argument("invalid pipeline batch limits");
     std::size_t total_keys=0;
@@ -64,6 +68,7 @@ BatchResult prepare_batch(Cache& cache,const std::vector<BatchRequest>& requests
     while(cursor<work.size()){
         std::vector<std::size_t> wave;wave.reserve(limits.workers);std::size_t bytes=0;
         while(cursor<work.size()&&wave.size()<limits.workers){auto& w=work[order[cursor]];
+            if(known&&known(*w.key)){w.outcome.status=BatchStatus::Suppressed;w.outcome.build.path=BuildPath::Failed;++result.suppressed_jobs;++cursor;continue;}
             if(w.estimate>limits.estimated_bytes){w.outcome.status=BatchStatus::BudgetExceeded;++cursor;continue;}
             if(w.estimate>limits.estimated_bytes-bytes)break;
             bytes+=w.estimate;wave.push_back(order[cursor++]);
@@ -86,10 +91,21 @@ BatchResult prepare_batch(Cache& cache,const std::vector<BatchRequest>& requests
             // A confirmed rejection invalidates the old blob even if the
             // uncached retry fails. A thrown initial callback preserves it.
             if(r.cache_rejected)cache.erase(*w.key);
+            if(w.permanent&&remember)w.outcome.failure_remembered=remember(*w.key);
             if(!w.fresh.empty()){r.write=cache.put(*w.key,w.fresh)==Status::Ok?WriteStatus::Stored:WriteStatus::Rejected;Bytes{}.swap(w.fresh);}
         }
     }
     for(std::size_t i=0;i<mapping.size();++i)if(mapping[i]!=missing){const bool duplicate=result.items[i].coalesced;result.items[i]=work[mapping[i]].outcome;result.items[i].coalesced=duplicate;}
     return result;
+}
+}
+BatchResult prepare_batch(Cache& cache,const std::vector<BatchRequest>& requests,
+                          const BatchCreate& create,BatchLimits limits){
+    if(!create)throw std::invalid_argument("invalid pipeline batch callback");
+    return prepare_impl(cache,requests,[&](const Bytes& key,const Bytes* blob){return ClassifiedAttempt{create(key,blob),FailureClass::None};},limits,{},{});
+}
+BatchResult prepare_guarded_batch(GuardedPipelineCache& cache,const std::vector<BatchRequest>& requests,
+                                  const ClassifiedBatchCreate& create,BatchLimits limits){
+    return prepare_impl(cache.cache_,requests,create,limits,[&](const Bytes& key){return cache.known(key);},[&](const Bytes& key){return cache.remember(key);});
 }
 }

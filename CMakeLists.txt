@@ -240,6 +240,16 @@ foreach(target native_asset_stream native_asset_stream_tests)
 endforeach()
 add_test(NAME native_asset_stream_exact_reads_and_errors COMMAND native_asset_stream_tests)
 set_tests_properties(native_asset_stream_exact_reads_and_errors PROPERTIES TIMEOUT 20)
+add_executable(native_asset_stream_budget_tests fixtures/native_asset_stream_budget_tests.cpp)
+target_link_libraries(native_asset_stream_budget_tests PRIVATE native_asset_stream)
+if(MSVC)
+  target_compile_options(native_asset_stream_budget_tests PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_asset_stream_budget_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_asset_stream_byte_budget COMMAND native_asset_stream_budget_tests)
+set_tests_properties(native_asset_stream_byte_budget PROPERTIES TIMEOUT 20)
+
 
 # Read-only, offline synthetic asset override planner. Never rewrites originals.
 # File/manifest compatibility with the actual game has not been tested.

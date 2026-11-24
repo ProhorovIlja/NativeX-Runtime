@@ -32,3 +32,8 @@ Prior documentation and chronological engineering history are preserved at [the 
 
 - New original read-only combined package/symbol closure checker, including forwarder-induced provider imports, missing symbol evidence and startup/delayed reachability. No runtime execution or proprietary material.
 - 40/40 Python tests (13 new) and all four PE integration checks passed, including source-linked Win64 fixtures. Strict GCC C++17 build passed. This validates metadata, not ABI or application startup. No automatic jobs requested.
+
+## Bounded asset streaming follow-up — 2026-11-24
+
+- Added configurable requested-byte backpressure for queued and executing reads and synchronized load statistics. Existing weighted queue and read semantics preserved, with earlier cancellation admission and post-hash check.
+- Original streaming test passed on strict GCC 14.2; new concurrent admission test passed on GCC, Clang 17, and GCC ASan/UBSan. Each run made 512 attempts with a 128 KiB test cap; peak stayed at 131072 bytes. No Windows or full CMake build, DirectStorage/io_uring, real-world throughput or proprietary input tested. New CTest registration added for future manual execution; no scheduled jobs requested.

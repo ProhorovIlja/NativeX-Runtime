@@ -15,7 +15,15 @@
 
 namespace scarlett::stream {
 constexpr std::size_t MaxRequestBytes = 4u * 1024u * 1024u;
-enum class Status { Ok, Cancelled, InvalidRange, FileError, ShortRead, QueueFull, Stopped };
+constexpr std::size_t DefaultOutstandingBytes = 128u * 1024u * 1024u;
+enum class Status { Ok, Cancelled, InvalidRange, FileError, ShortRead, QueueFull, Stopped, BudgetExceeded };
+struct ReaderStats {
+    std::size_t queued = 0;
+    std::size_t active = 0;
+    std::size_t outstanding_bytes = 0;
+    std::size_t peak_outstanding_bytes = 0;
+    std::size_t byte_budget = 0;
+};
 // Priority affects queue ordering only; the OS I/O and CPU decoding remain
 // ordinary portable native calls. Background work is never completely starved
 // by a continuously replenished high-priority queue.
@@ -49,19 +57,28 @@ std::uint64_t fnv1a64(const std::vector<std::uint8_t>& bytes);
 // validated semantics. Neither is enabled or emulated by this class.
 class Reader {
 public:
-    explicit Reader(std::size_t workers=2,std::size_t max_queued=64);
+    explicit Reader(std::size_t workers=2,std::size_t max_queued=64,
+                    std::size_t byte_budget=DefaultOutstandingBytes);
     ~Reader();
     Reader(const Reader&)=delete;
     Reader& operator=(const Reader&)=delete;
     std::future<Result> submit(Request request);
+    // Requested bytes of queued and executing reads only. Completed result
+    // buffers belong to callers and are not covered by this admission budget.
+    ReaderStats stats() const;
 private:
     void work();
-    std::mutex mutex_;
+    void finish(std::size_t bytes);
+    mutable std::mutex mutex_;
     std::condition_variable wake_;
     std::array<std::deque<std::packaged_task<Result()>>,3> pending_{};
     std::vector<std::thread> workers_;
     std::size_t max_queued_;
     std::size_t pending_count_=0;
+    std::size_t active_count_=0;
+    std::size_t outstanding_bytes_=0;
+    std::size_t peak_outstanding_bytes_=0;
+    std::size_t byte_budget_;
     std::size_t schedule_slot_=0;
     bool stopping_=false;
 };

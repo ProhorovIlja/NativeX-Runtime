@@ -1,4 +1,5 @@
 #include "native_asset_stream.hpp"
+#include <algorithm>
 #include <array>
 #include <fstream>
 #include <limits>
@@ -40,6 +41,8 @@ Result read_exact(const Request& request) {
     if(request.cancelled && request.cancelled->load())
         return {Status::Cancelled,{},0};
     result.checksum=fnv1a64(result.bytes);
+    if(request.cancelled && request.cancelled->load())
+        return {Status::Cancelled,{},0};
     return result;
 }
 }
@@ -70,8 +73,9 @@ std::uint64_t fnv1a64(const std::vector<std::uint8_t>& bytes) {
     }
     return hash;
 }
-Reader::Reader(std::size_t workers,std::size_t max_queued):max_queued_(max_queued) {
-    if(workers==0||workers>16||max_queued==0||max_queued>256)
+Reader::Reader(std::size_t workers,std::size_t max_queued,std::size_t byte_budget)
+    :max_queued_(max_queued),byte_budget_(byte_budget) {
+    if(workers==0||workers>16||max_queued==0||max_queued>256||byte_budget==0)
         throw std::invalid_argument("invalid thread/queue configuration");
     // A failure during partial thread startup must join already launched
     // threads. Otherwise std::thread destructors would call std::terminate.
@@ -100,18 +104,40 @@ std::future<Result> Reader::submit(Request request) {
     if(request.length>MaxRequestBytes ||
        static_cast<std::size_t>(request.priority)>2u)
         return immediate(Status::InvalidRange);
+    if(request.cancelled && request.cancelled->load())return immediate(Status::Cancelled);
     const auto lane=static_cast<std::size_t>(request.priority);
-    std::packaged_task<Result()> task([r=std::move(request)]{return read_exact(r);});
+    const auto bytes=request.length;
+    std::packaged_task<Result()> task([this,r=std::move(request),bytes]{
+        // Release admission credit before packaged_task makes the future ready,
+        // including exceptions (e.g. allocation failure).
+        Result result;
+        try { result=read_exact(r); }
+        catch(...) { finish(bytes); throw; }
+        finish(bytes);
+        return result;
+    });
     auto response=task.get_future();
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if(stopping_)return immediate(Status::Stopped);
         if(pending_count_>=max_queued_)return immediate(Status::QueueFull);
+        if(bytes>byte_budget_-outstanding_bytes_)return immediate(Status::BudgetExceeded);
         pending_[lane].push_back(std::move(task));
         ++pending_count_;
+        outstanding_bytes_+=bytes;
+        peak_outstanding_bytes_=std::max(peak_outstanding_bytes_,outstanding_bytes_);
     }
     wake_.notify_one();
     return response;
+}
+ReaderStats Reader::stats() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return {pending_count_,active_count_,outstanding_bytes_,peak_outstanding_bytes_,byte_budget_};
+}
+void Reader::finish(std::size_t bytes) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    outstanding_bytes_-=bytes;
+    --active_count_;
 }
 void Reader::work() {
     while(true) {
@@ -129,6 +155,7 @@ void Reader::work() {
             next=std::move(pending_[lane].front());
             pending_[lane].pop_front();
             --pending_count_;
+            ++active_count_;
         }
         next();
     }

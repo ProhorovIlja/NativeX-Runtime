@@ -331,6 +331,18 @@ endforeach()
 add_test(NAME native_upload_arena_fence_lifetime COMMAND native_upload_arena_tests)
 set_tests_properties(native_upload_arena_fence_lifetime PROPERTIES TIMEOUT 30)
 
+if(WIN32 AND CMAKE_SIZEOF_VOID_P EQUAL 8)
+  add_executable(d3d12_native_upload_roundtrip fixtures/d3d12_native_upload_roundtrip.cpp)
+  target_link_libraries(d3d12_native_upload_roundtrip PRIVATE native_upload_arena d3d12 dxgi)
+  target_compile_features(d3d12_native_upload_roundtrip PRIVATE cxx_std_17)
+  if(MSVC)
+    target_compile_options(d3d12_native_upload_roundtrip PRIVATE /W4 /WX /permissive-)
+  endif()
+  add_test(NAME native_win_d3d12_upload_roundtrip_warp COMMAND d3d12_native_upload_roundtrip warp)
+  set_tests_properties(native_win_d3d12_upload_roundtrip_warp PROPERTIES TIMEOUT 40 SKIP_RETURN_CODE 77)
+endif()
+
+
 
 option(NATIVEX_ENABLE_ZSTD "Enable optional system Zstandard decoder" OFF)
 if(NATIVEX_ENABLE_ZSTD)

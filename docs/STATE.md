@@ -76,3 +76,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Fence-governed upload allocator follow-up — 2026-11-24
 
 - Added original portable upload suballocator, fence-governed lifetime and simulated staging integration. Strict GCC and Clang and GCC ASan/UBSan passed the same deterministic 20000-operation workload each (5942 reservations, 78 denials, 3618/4096 peak bytes, final zero); independent bitmap oracle compared first-fit admission and offset. Previous staging fixture rebuilt and passed GCC. No actual D3D12 calls, Windows execution, full CMake build, GPU performance or game data. PortWatch revision unchanged. Manual CTest registration only; no automation.
+
+## Windows upload/readback integration source — 2026-11-24
+
+- Added standalone source-generated texture roundtrip fixture using native D3D12 API, WARP or explicit NVIDIA adapter, device footprint comparison and fence-controlled reuse. Windows SDK and device unavailable locally: new fixture is uncompiled/unexecuted. Four portable staging/arena regression executions passed GCC and Clang, 20000 deterministic allocator operations per compiler with no detected conflicts. No automatic workflow created, no game data accessed.

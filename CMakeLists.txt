@@ -1013,3 +1013,15 @@ else()
 endif()
 add_test(NAME native_wave64_integer_reference COMMAND native_wave64_reference_tests)
 set_tests_properties(native_wave64_integer_reference PROPERTIES TIMEOUT 30)
+
+
+# Explicit process-local deterministic translation refusal cache.
+add_executable(native_pipeline_failure_tests fixtures/native_pipeline_failure_tests.cpp)
+target_link_libraries(native_pipeline_failure_tests PRIVATE native_pipeline_build)
+if(MSVC)
+  target_compile_options(native_pipeline_failure_tests PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_pipeline_failure_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_pipeline_deterministic_failure_guard COMMAND native_pipeline_failure_tests)
+set_tests_properties(native_pipeline_deterministic_failure_guard PROPERTIES TIMEOUT 30)

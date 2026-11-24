@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Explicit Linux headless software GL differential test; no third-party Python packages."""
+import argparse
 import ctypes as C
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ U, I, P, Z = C.c_uint, C.c_int, C.c_void_p, C.c_ssize_t
 M = 0xffffffff
 
 
-def run():
+def run(shader_name, seed):
     os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
     egl = C.CDLL('libEGL.so.1')
 
@@ -52,7 +53,7 @@ def run():
         print('renderer=' + renderer, 'version=' + get_string(0x1f02).decode())
         if not any(x in renderer.lower() for x in ('llvmpipe', 'softpipe', 'swrast')):
             raise RuntimeError('not a confirmed software renderer')
-        source = (Path(__file__).resolve().parents[1] / 'fixtures/native_wave64_compute.comp').read_bytes()
+        source = (Path(__file__).resolve().parents[1] / 'fixtures' / shader_name).read_bytes()
         shader = gl('glCreateShader', U, U)(0x91b9)
         s = C.c_char_p(source)
         gl('glShaderSource', None, U, I, P, P)(shader, 1, C.byref(s), None)
@@ -72,7 +73,7 @@ def run():
             gl('glGetProgramInfoLog', None, U, I, P, P)(program, len(log), None, log)
             raise RuntimeError(log.value.decode())
         gl('glUseProgram', None, U)(program)
-        rng = random.Random(64)
+        rng = random.Random(seed)
         masks = [0, (1<<64)-1, 1<<31, 1<<32, 1<<63, M, M<<32, 0x8000000180000001]
         masks += [rng.getrandbits(64) for _ in range(2048)]
         inp, expected = [], []
@@ -123,7 +124,11 @@ def run():
 
 if __name__ == '__main__':
     try:
-        run()
+        parser = argparse.ArgumentParser(description=__doc__)
+        parser.add_argument("--shader", choices=("native_wave64_compute.comp", "native_wave64_pingpong.comp"), default="native_wave64_compute.comp")
+        parser.add_argument("--seed", type=int, default=64)
+        args = parser.parse_args()
+        run(args.shader, args.seed)
     except (OSError, RuntimeError) as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)

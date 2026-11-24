@@ -72,3 +72,7 @@ Prior documentation and chronological engineering history are preserved at [the 
 ## Portable texture upload staging follow-up — 2026-11-24
 
 - Added independent CPU texture staging with mip/array layout, BC block geometry, aligned zero padding, cap and source validation. GCC and Clang strict C++17 and GCC ASan/UBSan passed both staging and extended decode-budget fixtures (six executions). Integrated 16384 CPU pixels and all staged bytes matched; 3072 concurrent decode attempts across three runs, no budget invariant errors. System Zstd not sanitizer-instrumented. No actual GPU, Windows, complete CMake build, BC decoding or game execution tested. PortWatch source revision unchanged; Sonoma pipeline source reviewed, not imported. Manual CTest registration only; no automation.
+
+## Fence-governed upload allocator follow-up — 2026-11-24
+
+- Added original portable upload suballocator, fence-governed lifetime and simulated staging integration. Strict GCC and Clang and GCC ASan/UBSan passed the same deterministic 20000-operation workload each (5942 reservations, 78 denials, 3618/4096 peak bytes, final zero); independent bitmap oracle compared first-fit admission and offset. Previous staging fixture rebuilt and passed GCC. No actual D3D12 calls, Windows execution, full CMake build, GPU performance or game data. PortWatch revision unchanged. Manual CTest registration only; no automation.

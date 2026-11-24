@@ -35,6 +35,9 @@ class PE {
   };
   std::vector<UnwindSummary> unwind_summaries;
   uint32_t relocation_blocks=0;
+  uint64_t relocation_entries=0, relocation_dir64=0, relocation_absolute=0;
+  uint64_t relocation_unsupported=0;
+  uint64_t relocation_type_counts[16]={};
   bool has_tls_directory=false;
   std::vector<uint32_t> tls_callbacks;
   uint32_t tls_template_rva=0, tls_template_bytes=0;
@@ -341,17 +344,45 @@ public:
       for(const auto& fn:runtime_functions)
         unwind_summaries.push_back(inspect_unwind(fn,image_size));
     }
+    // Base relocations: read-only AMD64 metadata, no image mapping or fixups.
+    // Microsoft PE/COFF defines a 4 KiB Page RVA and 16-bit type/offset slots.
+    // Only ABSOLUTE padding and DIR64 are interpreted by this inspector.
     const auto reloc=dir(5);
-    if(reloc.first && reloc.second){
+    if(reloc.first || reloc.second){
+      if(!reloc.first || !reloc.second || (reloc.first&3u) ||
+         uint64_t(reloc.first)+reloc.second>size_of_image)
+        throw std::runtime_error("invalid relocation directory range");
       uint64_t consumed=0;
       while(consumed<reloc.second){
         if(reloc.second-consumed<8 || uint64_t(reloc.first)+consumed>UINT32_MAX)
           throw std::runtime_error("truncated relocations");
-        size_t pos=rva(uint32_t(uint64_t(reloc.first)+consumed),8);
-        uint32_t block=u32(pos+4);
-        if(block<8 || block%2 || block>reloc.second-consumed)
+        const uint32_t address=uint32_t(uint64_t(reloc.first)+consumed);
+        size_t pos=rva(address,8);
+        const uint32_t page=u32(pos), block=u32(pos+4);
+        if(block<8 || block%4 || block>reloc.second-consumed ||
+           (page&0xfffu) || page>=size_of_image)
           throw std::runtime_error("invalid relocation block");
-        rva(uint32_t(uint64_t(reloc.first)+consumed),block);
+        rva(address,block);
+        for(uint32_t j=8;j<block;j+=2){
+          const uint16_t slot=u16(pos+j);
+          const unsigned type=slot>>12u;
+          ++relocation_entries;
+          ++relocation_type_counts[type];
+          if(type==0u){++relocation_absolute;continue;}
+          if(type!=10u){++relocation_unsupported;continue;}
+          const uint64_t target=uint64_t(page)+(slot&0xfffu);
+          if(target+8u>size_of_image)
+            throw std::runtime_error("DIR64 relocation target outside image");
+          // Accept virtual zero-fill as well as file-backed mapped sections;
+          // a metadata target in an unmapped image gap is not valid.
+          bool mapped=target+8u<=headers;
+          for(const auto& section:sections){
+            if(target>=section.va && target+8u<=uint64_t(section.va)+
+                 std::max(section.size,section.len)){mapped=true;break;}
+          }
+          if(!mapped)throw std::runtime_error("DIR64 relocation target outside mapped range");
+          ++relocation_dir64;
+        }
         consumed+=block;
         ++relocation_blocks;
       }
@@ -540,6 +571,18 @@ public:
       out<<(i?",":"")<<tls_callbacks[i];
     out<<"],\"tls_callbacks_executed\":false";
     out<<",\"relocation_blocks\":"<<relocation_blocks
+       <<",\"relocation_entries\":"<<relocation_entries
+       <<",\"relocation_absolute_count\":"<<relocation_absolute
+       <<",\"relocation_dir64_count\":"<<relocation_dir64
+       <<",\"relocation_unsupported_count\":"<<relocation_unsupported
+       <<",\"relocation_dir64_ranges_checked\":true"
+       <<",\"relocation_type_counts\":{";
+    bool first_reloc=true;
+    for(unsigned i=0;i<16;i++)if(relocation_type_counts[i]){
+      out<<(first_reloc?"":",")<<quote(std::to_string(i))<<":"<<relocation_type_counts[i];
+      first_reloc=false;
+    }
+    out<<"},\"relocations_applied\":false"
        <<",\"has_tls_directory\":"<<(has_tls_directory?"true":"false")
        <<",\"section_names\":[";
     for(size_t i=0;i<names.size();i++)out<<(i?",":"")<<quote(names[i]);

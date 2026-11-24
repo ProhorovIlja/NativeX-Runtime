@@ -75,7 +75,55 @@ class PackagePreflightTests(unittest.TestCase):
         self.assertEqual(result["reachable_images"], ["game.exe"])
         self.assertEqual(result["unreached_images"], ["engine.dll", "unused.dll"])
         self.assertEqual(result["dependency_edges"], [
+            {"from": "engine.dll", "to": "game.exe", "kind": "immediate-internal"},
             {"from": "game.exe", "to": "engine.dll", "kind": "delayed-internal"}])
+        self.assertEqual(result["delayed_only_images"], ["engine.dll"])
+        self.assertEqual(result["unreferenced_images"], ["unused.dll"])
+        self.assertTrue(result["all_names_resolved"])
+
+    def test_transitive_delayed_dependencies_fail_full_not_startup(self):
+        config = package()
+        config["images"][0]["pe"] = pe([], ["engine.dll"])
+        config["images"][1]["pe"] = pe(["plugin.dll", "kernel32.dll"], ["nested.dll"])
+        config["images"].append({"name": "plugin.dll", "pe": pe(["absent.dll"])})
+        config["images"].append({"name": "nested.dll", "pe": pe([], ["also-absent.dll"])})
+        result = build_preflight(config)
+        self.assertEqual(result["missing_delayed_modules"], ["absent.dll", "also-absent.dll"])
+        self.assertEqual(result["declared_external_delayed"], ["kernel32.dll"])
+        self.assertEqual(result["delayed_only_images"], ["engine.dll", "nested.dll", "plugin.dll"])
+        self.assertTrue(result["immediate_names_resolved"])
+        self.assertFalse(result["all_names_resolved"])
+        config["external_modules"] += ["absent.dll", "also-absent.dll"]
+        self.assertTrue(build_preflight(config)["all_names_resolved"])
+
+    def test_delayed_immediate_cycle_is_separate(self):
+        config = package()
+        config["images"][0]["pe"] = pe([], ["engine.dll"])
+        config["images"][1]["pe"] = pe(["plugin.dll"])
+        config["images"].append({"name": "plugin.dll", "pe": pe(["engine.dll"])})
+        result = build_preflight(config)
+        self.assertEqual(result["immediate_cycles"], [])
+        self.assertEqual(result["delayed_reachable_immediate_cycles"], [["engine.dll", "plugin.dll", "engine.dll"]])
+        self.assertTrue(result["immediate_names_resolved"])
+        self.assertFalse(result["all_names_resolved"])
+
+    def test_delay_only_cycle_terminates_and_does_not_block(self):
+        config = package()
+        config["images"][0]["pe"] = pe([], ["engine.dll"])
+        config["images"][1]["pe"] = pe([], ["game.exe"])
+        result = build_preflight(config)
+        self.assertEqual(result["delayed_reachable_immediate_cycles"], [])
+        self.assertTrue(result["all_names_resolved"])
+
+    def test_immediate_path_takes_precedence_over_delayed(self):
+        config = package()
+        config["images"][0]["pe"] = pe(["engine.dll"], ["engine.dll"])
+        config["images"][1]["pe"] = pe(["absent.dll"])
+        result = build_preflight(config)
+        self.assertEqual(result["missing_immediate_modules"], ["absent.dll"])
+        self.assertEqual(result["missing_delayed_modules"], [])
+        self.assertEqual(result["delayed_only_images"], [])
+        self.assertFalse(result["immediate_names_resolved"])
 
     def test_case_folding_and_duplicate_module_defense(self):
         config = package()

@@ -1,7 +1,7 @@
 """Pure static Windows x64 multi-image dependency preflight.
 
 Orders explicitly provided PE images by immediate imports, identifies missing
-external providers, delay imports and internal dependency cycles. This tool
+external providers, transitive delay imports and internal dependency cycles. This tool
 never maps, loads, invokes, relinks, downloads or executes any PE code.
 """
 from __future__ import annotations
@@ -71,63 +71,80 @@ def build_preflight(package):
     if entry not in mapped:
         raise ValidationError("package entry image is not supplied")
 
+    # First classify the startup-only graph; crossing a delay edge changes
+    # the entire downstream dependency closure into optional-on-demand work.
+    def closure(seeds, include_delayed):
+        seen = set()
+        pending = list(seeds)
+        while pending:
+            name = pending.pop()
+            if name in seen:
+                continue
+            seen.add(name)
+            deps = mapped[name]["immediate"]
+            if include_delayed:
+                deps = deps + mapped[name]["delayed"]
+            pending.extend(dep for dep in deps if dep in mapped and dep not in seen)
+        return seen
+
+    reachable = closure([entry], False)
+    all_reachable = closure([entry], True)
     required_missing = set()
     delayed_missing = set()
     required_external = set()
     delayed_external = set()
-    reachable = set()
     edges = []
-    def visit_reachable(name):
-        if name in reachable:
-            return
-        reachable.add(name)
-        for dep in mapped[name]["immediate"]:
-            if dep in mapped:
-                edges.append({"from": name, "to": dep, "kind": "immediate-internal"})
-                visit_reachable(dep)
-            elif dep in declared_external:
-                required_external.add(dep)
-            else:
-                required_missing.add(dep)
-        for dep in mapped[name]["delayed"]:
-            if dep in mapped:
-                edges.append({"from": name, "to": dep, "kind": "delayed-internal"})
-                # Delay-imported code is inventoried, but not boot-loaded.
-            elif dep in declared_external:
-                delayed_external.add(dep)
-            else:
-                delayed_missing.add(dep)
-    visit_reachable(entry)
-    # DFS topological order only through *immediate* imports. A cycle fails
-    # closed instead of inventing an executable DLL initialization order.
-    active = set()
-    completed = set()
-    order = []
-    cycles = []
-    def place(name, chain):
-        if name in completed:
-            return
-        if name in active:
-            start = chain.index(name)
-            candidate = chain[start:] + [name]
-            if candidate not in cycles:
-                cycles.append(candidate)
-            return
-        active.add(name)
-        for dep in mapped[name]["immediate"]:
-            if dep in mapped:
-                place(dep, chain + [name])
-        active.remove(name)
-        completed.add(name)
-        order.append(name)
-    place(entry, [])
-    cycles.sort()
+    for name in sorted(all_reachable):
+        for kind in ("immediate", "delayed"):
+            required = name in reachable and kind == "immediate"
+            for dep in mapped[name][kind]:
+                if dep in mapped:
+                    edges.append({"from": name, "to": dep, "kind": kind + "-internal"})
+                elif dep in declared_external:
+                    (required_external if required else delayed_external).add(dep)
+                else:
+                    (required_missing if required else delayed_missing).add(dep)
+
+    # Report cycles of *immediate* imports separately for startup and for
+    # optional modules. Delay-only cycles are not initialization cycles.
+    # This is a conservative graph policy, not a Windows loader simulation.
+    def immediate_order(nodes, seeds):
+        active = set()
+        completed = set()
+        order = []
+        cycles = []
+        def place(name, chain):
+            if name in completed:
+                return
+            if name in active:
+                start = chain.index(name)
+                candidate = chain[start:] + [name]
+                if candidate not in cycles:
+                    cycles.append(candidate)
+                return
+            active.add(name)
+            for dep in mapped[name]["immediate"]:
+                if dep in nodes:
+                    place(dep, chain + [name])
+            active.remove(name)
+            completed.add(name)
+            order.append(name)
+        for name in seeds:
+            place(name, [])
+        return order, sorted(cycles)
+
+    order, cycles = immediate_order(reachable, [entry])
+    optional = all_reachable - reachable
+    _, optional_cycles = immediate_order(optional, sorted(optional))
     startup_names_resolved = not required_missing and not cycles
     return {"kind": "native-pc-pe-package-preflight/v1", "dry_run_only": True,
             "game_executed": False, "abi_verified": False,
             "entry": entry,
             "reachable_images": sorted(reachable),
             "unreached_images": sorted(set(mapped) - reachable),
+            "all_reachable_images": sorted(all_reachable),
+            "delayed_only_images": sorted(optional),
+            "unreferenced_images": sorted(set(mapped) - all_reachable),
             "immediate_dependency_order": order if startup_names_resolved else [],
             "dependency_edges": sorted(edges, key=lambda x: (x["from"], x["to"], x["kind"])),
             "missing_immediate_modules": sorted(required_missing),
@@ -135,8 +152,9 @@ def build_preflight(package):
             "declared_external_immediate": sorted(required_external),
             "declared_external_delayed": sorted(delayed_external),
             "immediate_cycles": cycles,
+            "delayed_reachable_immediate_cycles": optional_cycles,
             "immediate_names_resolved": startup_names_resolved,
-            "all_names_resolved": startup_names_resolved and not delayed_missing,
+            "all_names_resolved": startup_names_resolved and not delayed_missing and not optional_cycles,
             "provider_exports_verified": False}
 
 

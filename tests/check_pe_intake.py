@@ -26,7 +26,7 @@ def fixture(path):
     # Two sorted synthetic AMD64 .pdata RUNTIME_FUNCTION entries, metadata only.
     struct.pack_into('<II',data,opt+112+3*8,0x1320,24)
     # Relocations, TLS and delay imports are all synthesized, never copied.
-    struct.pack_into('<II',data,opt+112+5*8,0x1080,8)
+    struct.pack_into('<II',data,opt+112+5*8,0x1080,12)
     struct.pack_into('<II',data,opt+112+9*8,0x1090,40)
     struct.pack_into('<II',data,opt+112+13*8,0x10C0,64)
     sh=opt+0xF0
@@ -34,7 +34,7 @@ def fixture(path):
     struct.pack_into('<IIII',data,sh+8,0x400,0x1000,0x400,0x200)
     struct.pack_into('<IIIII',data,0x200,0x1250,0,0,0x1040,0x1250)
     data[0x240:0x240+13]=b'KERNEL32.dll\x00'
-    struct.pack_into('<II',data,0x280,0x1000,8)
+    struct.pack_into('<IIHH',data,0x280,0x1000,12,0xA300,0x0FFF)
     # Self-contained synthetic PE32+ TLS directory at raw offset 0x290.
     # IMAGE_TLS_DIRECTORY64 uses absolute image VA fields, not ordinary RVA.
     base=0x140000000
@@ -113,6 +113,27 @@ def main(exe):
              'stack_allocation_bytes':24,'chained':False,'handler_rva':0x1090}
         ],info
         assert info['relocation_blocks']==1,info
+        assert info['relocation_entries']==2 and info['relocation_dir64_count']==1
+        assert info['relocation_absolute_count']==1 and info['relocation_unsupported_count']==0
+        assert info['relocation_type_counts']=={'0':1,'10':1}
+        assert info['relocation_dir64_ranges_checked'] and not info['relocations_applied']
+        # Independently generated malformed relocation metadata, no execution.
+        original=p.read_bytes()
+        for offset,fmt,value in [(0x280,'<I',0x1001), (0x284,'<I',10),
+                                 (0x288,'<H',0xAFFF), (0x288,'<H',0xA500),
+                                 (0x98+112+5*8,'<I',0)]:
+            broken=bytearray(original);struct.pack_into(fmt,broken,offset,value)
+            q=d/'bad relocation.exe';q.write_bytes(broken)
+            fail=subprocess.run([exe,str(q)],capture_output=True,text=True)
+            assert fail.returncode==2 and 'relocation' in fail.stderr,fail.stderr
+        # Report unsupported types without pretending to validate their targets.
+        alternate=bytearray(original);struct.pack_into('<H',alternate,0x288,0x7300)
+        q=d/'unknown relocation type.exe';q.write_bytes(alternate)
+        report=json.loads(subprocess.run([exe,str(q)],capture_output=True,text=True,check=True).stdout)
+        assert report['relocation_unsupported_count']==1 and report['relocation_dir64_count']==0
+        assert report['relocation_type_counts']=={'0':1,'7':1}
+        assert p.read_bytes()==original
+
         assert info['has_tls_directory'] is True,info
         assert info['tls_template_rva']==0x1300,info
         assert info['tls_template_bytes']==8,info

@@ -11,3 +11,9 @@
 - No fresh Windows/MSVC CI, physical GPU performance, complete console ABI, or commercial-title startup is claimed. Automatic Actions were disabled by the repository owner; no new scheduled tasks or runs requested.
 
 Prior documentation and chronological engineering history are preserved at [the original main revision](https://github.com/ProhorovIlja/NativeX-Runtime/tree/14a8806993bcd73887c63c5261ae4d62598f759b). See [PUBLIC_SCOPE.md](PUBLIC_SCOPE.md) and [NATIVE_PE_TOOLS.md](NATIVE_PE_TOOLS.md) for the current public scope.
+
+## PE correctness follow-up — 2026-11-24
+
+- Fixed full dependency closure through nested delay-loaded modules; four additional regression tests cover delayed missing dependencies, optional immediate cycles, delay-only cycles and precedence of startup paths.
+- Added read-only DIR64 target bounds and base relocation slot/type inventory, with malformed-range negative controls and unsupported-type reporting.
+- Strict GNU C++17 build and four standalone PE checks passed, with 27/27 Python unit tests. Original synthetic fixtures and source-built DLL metadata only. No Windows execution or new CI runs; no proprietary inputs.

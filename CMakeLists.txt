@@ -1000,3 +1000,16 @@ add_test(NAME native_pc_vertical_slice_io_input_audio_save
   COMMAND native_pc_vertical_slice)
 set_tests_properties(native_pc_vertical_slice_io_input_audio_save
   PROPERTIES TIMEOUT 25)
+
+
+# Portable logical Wave64 integer reference; no GPU execution or shader translator.
+add_executable(native_wave64_reference_tests fixtures/native_wave64_reference_tests.cpp)
+target_include_directories(native_wave64_reference_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_compile_features(native_wave64_reference_tests PRIVATE cxx_std_17)
+if(MSVC)
+  target_compile_options(native_wave64_reference_tests PRIVATE /W4 /WX /permissive-)
+else()
+  target_compile_options(native_wave64_reference_tests PRIVATE -Wall -Wextra -Werror)
+endif()
+add_test(NAME native_wave64_integer_reference COMMAND native_wave64_reference_tests)
+set_tests_properties(native_wave64_integer_reference PROPERTIES TIMEOUT 30)

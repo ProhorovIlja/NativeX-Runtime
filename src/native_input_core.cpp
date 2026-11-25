@@ -139,6 +139,9 @@ void Router::gamepad(std::uint8_t slot,const Gamepad& value,std::uint64_t ticks)
     if(!focused_ || slot>=pads_.size())return;
     if(gamepads_equal(pads_[slot],value))return;
     const auto old_buttons=combined_gamepad_buttons();
+    gamepad_slot_edges_.record(slot,
+        pads_[slot].connected?pads_[slot].buttons:std::uint16_t{0},
+        value.connected?value.buttons:std::uint16_t{0});
     pads_[slot]=value;
     const auto new_buttons=combined_gamepad_buttons();
     gamepad_press_edges_|=static_cast<std::uint16_t>(new_buttons &
@@ -158,6 +161,7 @@ void Router::set_focus(bool focused,std::uint64_t ticks) {
         key_press_edges_.reset();key_release_edges_.reset();
         mouse_press_edges_.reset();mouse_release_edges_.reset();
         gamepad_press_edges_=0;gamepad_release_edges_=0;
+        gamepad_slot_edges_.clear();
         // Invalidate stale messages; guarantee one focus-lost notification.
         head_=0;tail_=0;count_=0;
     }
@@ -201,6 +205,7 @@ FrameSnapshot Router::snapshot(std::uint64_t receipt_ticks) const noexcept {
     result.focused=focused_;
     result.dropped_events=dropped_;
     result.pads=pads_;
+    result.gamepad_slot_edges=gamepad_slot_edges_;
     result.motion=mouse_motion_;
     result.key_press_edges=key_press_edges_;
     result.key_release_edges=key_release_edges_;
@@ -223,6 +228,7 @@ FrameSnapshot Router::capture_frame(std::uint64_t receipt_ticks) noexcept {
     key_press_edges_.reset();key_release_edges_.reset();
     mouse_press_edges_.reset();mouse_release_edges_.reset();
     gamepad_press_edges_=0;gamepad_release_edges_=0;
+    gamepad_slot_edges_.clear();
     return frame;
 }
 } // namespace scarlett::input

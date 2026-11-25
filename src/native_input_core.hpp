@@ -1,6 +1,7 @@
 // Original platform-independent, per-physical-device PC input state core.
 // No controller emulation, global hooks, game binary or vendor SDK.
 #pragma once
+#include "native_gamepad_edges.hpp"
 #include <array>
 #include <bitset>
 #include <cstddef>
@@ -51,6 +52,7 @@ struct FrameSnapshot {
     MouseMotion motion{};
     std::uint64_t dropped_events=0;
     bool focused=true;
+    PadEdges gamepad_slot_edges{};
     bool key_down(std::uint16_t scan) const noexcept {
         return scan<keys.size() && keys.test(scan);
     }
@@ -72,7 +74,7 @@ class Router {
 public:
     static constexpr std::size_t KeySlots = 1024;
     static constexpr std::size_t QueueLimit = 512;
-    static constexpr std::size_t GamepadSlots = 4;
+    static constexpr std::size_t GamepadSlots = PadEdges::Slots;
     static constexpr std::size_t RawDeviceSlots = 16;
     // All APIs are for one owner/polling thread, NOT concurrent use without a lock.
     void key(std::uint64_t device,std::uint16_t scan_code,bool e0,bool e1,
@@ -117,6 +119,7 @@ private:
     std::uint16_t combined_gamepad_buttons() const noexcept;
     std::array<RawDevice,RawDeviceSlots> devices_{};
     std::array<Gamepad,GamepadSlots> pads_{};
+    PadEdges gamepad_slot_edges_{};
     MouseMotion mouse_motion_{};
     std::bitset<KeySlots> key_press_edges_{},key_release_edges_{};
     std::bitset<5> mouse_press_edges_{},mouse_release_edges_{};

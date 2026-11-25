@@ -68,6 +68,34 @@ void gamepad_changes() {
     r.gamepad(4,pad,45);
     check(r.queued()==0,"out-of-range XInput slot accepted");
 }
+void gamepad_independent_slot_edges() {
+    Router r;
+    Gamepad p{};p.connected=true;p.buttons=1;
+    r.gamepad(0,p,1);
+    r.gamepad(1,p,2);
+    auto a=r.capture_frame(3);
+    check(a.gamepad_slot_edges.press[0]==1 &&
+          a.gamepad_slot_edges.press[1]==1 && a.gamepad_press_edges==1,
+          "independent press lost behind aggregate held button");
+    r.gamepad(0,Gamepad{},4);
+    auto b=r.capture_frame(5);
+    check(b.gamepad_slot_edges.release[0]==1 &&
+          b.gamepad_slot_edges.release[1]==0 && b.gamepad_release_edges==0,
+          "disconnect released another controller");
+    r.gamepad(1,Gamepad{},6);
+    r.gamepad(1,p,7);
+    auto c=r.capture_frame(8);
+    check(c.gamepad_slot_edges.press[1]==1 &&
+          c.gamepad_slot_edges.release[1]==1,
+          "same-frame independent edges lost");
+    auto d=r.capture_frame(9);
+    check(d.gamepad_slot_edges.press[1]==0 &&
+          d.gamepad_slot_edges.release[1]==0,"slot edges replayed");
+    r.gamepad(2,p,10);
+    r.set_focus(false,11);
+    check(r.capture_frame(12).gamepad_slot_edges.press[2]==0,
+          "stale slot edge survived focus loss");
+}
 void focus_loss_guarantees_reset() {
     Router r;
     r.key(1,40,false,false,true,1);
@@ -300,6 +328,7 @@ int main() {
     try {
         keys_extended_and_repeat();e1_and_invalid();
         mouse_modes_buttons_and_wheel();gamepad_changes();
+        gamepad_independent_slot_edges();
         focus_loss_guarantees_reset();queue_overflow_and_reset();
         multiple_physical_keyboards_and_mice();
         physical_device_capacity_and_reuse();
@@ -314,7 +343,7 @@ int main() {
         std::cerr<<"native input deterministic tests FAILED: "<<ex.what()<<'\n';return 1;
     }
     std::cout<<"{\"kind\":\"native-input-state-machine\","
-             "\"scenarios\":15,\"raw_devices_required\":false,"
+             "\"scenarios\":16,\"raw_devices_required\":false,"
              "\"focus_cleanup\":true,\"no_emulated_controller\":true,"
              "\"hardware_tested\":false}\n";
     return 0;

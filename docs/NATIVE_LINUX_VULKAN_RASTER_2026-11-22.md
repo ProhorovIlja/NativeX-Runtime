@@ -20,3 +20,20 @@ ctest --test-dir build-native-vk --output-on-failure -V
 Technical references: [Khronos Vulkan render passes](https://docs.vulkan.org/tutorial/latest/07_Advanced_Topics/03_Multisampling.html), [Khronos Vulkan synchronization examples](https://docs.vulkan.org/guide/latest/synchronization_examples.html), and [Vulkan framebuffer/pipeline documentation](https://docs.vulkan.org/spec/latest/chapters/renderpass.html). No external source files are imported, modified or redistributed.
 
 What remains after this acceptance: actual display presentation/WSI, hardware GPU (AMD/NVIDIA/Intel), image format/colorspace/HDR, frame pacing, resize/device-loss, physical GPU/VRAM memory budgets, real asset/shader conversion, then measured native upscalers and latency APIs. The Windows game port and first playable single-player scene remain the primary objective; Linux is the next native target, not a claim that Proton is an ELF port.
+
+## X11 swapchain resize and window readback
+
+The optional X11 test draws the same triangle directly into a FIFO swapchain. It resizes one window from 96×96 to 160×90, then 73×121, then back to 96×96. Each replacement supplies the previous handle in `oldSwapchain`. The test waits for both the submission and the presentation fence before reusing synchronization objects or disposing of the old framebuffers and swapchain.
+
+Run the following from the repository root with Xlib development headers, Xvfb and xauth installed in addition to the Vulkan build tools:
+
+```sh
+cmake -S fixtures/native-linux-vulkan -B build-x11 -DNATIVEX_TEST_X11_RESIZE=ON
+cmake --build build-x11 --target linux_vulkan_x11_resize
+xvfb-run -a -s '-screen 0 256x256x24' \
+  ctest --test-dir build-x11 -R '^native_linux_vulkan_x11_swapchain_resize$' --no-tests=error -V
+```
+
+Set `VK_DRIVER_FILES` to a single ICD manifest to compare physical and software drivers. The test reports a skip when the X11 display, Vulkan headers or device capabilities it needs are unavailable. It uses Vulkan 1.1, a BGRA8 UNORM surface and `VK_EXT_swapchain_maintenance1` presentation fences.
+
+At each size it presents two frames with different background colors. `XGetImage` reads the entire window. Every pixel must match the triangle or the current background, and pixels away from a triangle edge must also match their expected position. This checks 83,330 pixels over eight frames on a private X server. Device-loss recovery, physical scanout and latency need separate tests.

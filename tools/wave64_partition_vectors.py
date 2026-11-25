@@ -42,3 +42,21 @@ def vectors(seed):
                              joined, vals[src] if joined else 0,
                              total if active else 0, len(parts)))
     return masks, inp, expected
+
+
+if __name__ == "__main__":
+    import argparse
+    from array import array
+    from pathlib import Path
+
+    parser = argparse.ArgumentParser(description="Write native uint32 vectors for the Vulkan partition test")
+    parser.add_argument("inputs", type=Path)
+    parser.add_argument("reference", type=Path)
+    args = parser.parse_args()
+    _, inputs, reference = vectors(0x57415645)
+    for path, values in ((args.inputs, inputs), (args.reference, reference)):
+        words = array("I", values)
+        if words.itemsize != 4:
+            raise RuntimeError("the partition fixture requires 32-bit unsigned integers")
+        with path.open("wb") as output:
+            words.tofile(output)

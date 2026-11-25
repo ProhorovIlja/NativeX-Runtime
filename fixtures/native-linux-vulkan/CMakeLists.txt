@@ -56,3 +56,17 @@ add_test(NAME native_linux_vulkan_graphics_raster_pixel_readback
     "${CMAKE_CURRENT_BINARY_DIR}/scarlett_raster.frag.spv")
 set_tests_properties(native_linux_vulkan_graphics_raster_pixel_readback PROPERTIES
   SKIP_RETURN_CODE 77 TIMEOUT 35)
+
+option(NATIVEX_TEST_X11_RESIZE "Build the X11 Vulkan swapchain resize and window readback test" OFF)
+if(NATIVEX_TEST_X11_RESIZE)
+  find_package(X11 REQUIRED)
+  add_executable(linux_vulkan_x11_resize resize_present.cpp)
+  target_compile_features(linux_vulkan_x11_resize PRIVATE cxx_std_17)
+  target_compile_options(linux_vulkan_x11_resize PRIVATE -Wall -Wextra -Werror)
+  target_link_libraries(linux_vulkan_x11_resize PRIVATE Vulkan::Vulkan X11::X11)
+  add_dependencies(linux_vulkan_x11_resize linux_vulkan_raster_shaders)
+  add_test(NAME native_linux_vulkan_x11_swapchain_resize
+    COMMAND linux_vulkan_x11_resize ${SCARLETT_RASTER_SHADERS})
+  set_tests_properties(native_linux_vulkan_x11_swapchain_resize PROPERTIES
+    SKIP_RETURN_CODE 77 TIMEOUT 45)
+endif()

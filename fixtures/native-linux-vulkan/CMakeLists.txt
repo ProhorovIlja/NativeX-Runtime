@@ -33,6 +33,37 @@ add_test(NAME native_linux_vulkan_compute_shader_readback
 set_tests_properties(native_linux_vulkan_compute_shader_readback PROPERTIES
   SKIP_RETURN_CODE 77 TIMEOUT 35)
 
+# The partition shader has two storage buffers: CPU-generated input and GPU output.
+find_package(Python3 QUIET COMPONENTS Interpreter)
+find_program(SPIRV_VAL NAMES spirv-val)
+if(Python3_Interpreter_FOUND AND SPIRV_VAL)
+  set(partition_shader "${CMAKE_CURRENT_SOURCE_DIR}/../native_wave64_partition.comp")
+  set(partition_oracle "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/wave64_partition_vectors.py")
+  set(partition_spv "${CMAKE_CURRENT_BINARY_DIR}/wave64_partition.spv")
+  set(partition_input "${CMAKE_CURRENT_BINARY_DIR}/wave64_input.u32")
+  set(partition_reference "${CMAKE_CURRENT_BINARY_DIR}/wave64_reference.u32")
+  add_custom_command(
+    OUTPUT "${partition_spv}"
+    COMMAND "${GLSLANG_VALIDATOR}" -V --target-env vulkan1.1 -o "${partition_spv}.tmp" "${partition_shader}"
+    COMMAND "${SPIRV_VAL}" --target-env vulkan1.1 "${partition_spv}.tmp"
+    COMMAND "${CMAKE_COMMAND}" -E rename "${partition_spv}.tmp" "${partition_spv}"
+    DEPENDS "${partition_shader}"
+    VERBATIM)
+  add_custom_command(
+    OUTPUT "${partition_input}" "${partition_reference}"
+    COMMAND "${Python3_EXECUTABLE}" "${partition_oracle}" "${partition_input}" "${partition_reference}"
+    DEPENDS "${partition_oracle}"
+    VERBATIM)
+  add_custom_target(linux_vulkan_wave64_partition ALL
+    DEPENDS "${partition_spv}" "${partition_input}" "${partition_reference}")
+  add_dependencies(linux_vulkan_wave64_partition linux_vulkan_compute_readback)
+  add_test(NAME native_linux_vulkan_wave64_partition
+    COMMAND linux_vulkan_compute_readback "${partition_spv}" "${partition_input}" "${partition_reference}")
+  set_tests_properties(native_linux_vulkan_wave64_partition PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 35)
+else()
+  message(STATUS "Vulkan wave64 partition test requires both Python 3 and spirv-val")
+endif()
+
 # Genuine original graphics pipeline draw, image transfer and exact CPU pixel checks.
 foreach(stage vert frag)
   set(SCARLETT_RASTER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/raster.${stage}")

@@ -14,8 +14,9 @@
 
 namespace {
 constexpr std::size_t kElements=256;
-constexpr VkDeviceSize kBytes=kElements*sizeof(std::uint32_t);
-constexpr std::uint32_t kUnchanged=0xDEADBEEFu;
+constexpr std::size_t kLanesPerGroup = 64;
+constexpr std::size_t kInputWordsPerLane = 4;
+constexpr std::size_t kPartitionWordsPerLane = 12;
 std::uint32_t expected(std::uint32_t i){return (i*37u+11u)^0x5a5aa5a5u;}
 void check(VkResult r,const char* label) {
     if(r!=VK_SUCCESS)
@@ -67,17 +68,44 @@ std::vector<std::uint32_t> load_spirv(const char* path){
         throw std::runtime_error("Invalid SPIR-V magic/header");
     return data;
 }
-int test(const char* path){
+std::vector<std::uint32_t> load_vectors(const char* path) {
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    const std::streamoff bytes = file.tellg();
+    if (bytes <= 0 || bytes > 32 * 1024 * 1024 || bytes % sizeof(std::uint32_t) != 0)
+        throw std::runtime_error(std::string("invalid uint32 vector file: ") + path);
+    std::vector<std::uint32_t> words(static_cast<std::size_t>(bytes) / sizeof(std::uint32_t));
+    file.seekg(0);
+    if (!file.read(reinterpret_cast<char*>(words.data()), bytes))
+        throw std::runtime_error(std::string("short read: ") + path);
+    return words;
+}
+
+int test(const char* path, const std::vector<std::uint32_t>& input,
+         const std::vector<std::uint32_t>& reference) {
+    const bool partition = !input.empty();
+    const std::size_t lanes = partition ? input.size() / kInputWordsPerLane : reference.size();
+    if (partition && (input.size() % (kLanesPerGroup * kInputWordsPerLane) != 0 ||
+                      reference.size() != lanes * kPartitionWordsPerLane))
+        throw std::runtime_error("expected 64 lanes per group, 4 input and 12 reference words per lane");
+    const auto groups = static_cast<std::uint32_t>(lanes / kLanesPerGroup);
+    const VkDeviceSize inputBytes = input.size() * sizeof(std::uint32_t);
+    const VkDeviceSize outputBytes = reference.size() * sizeof(std::uint32_t);
+    const VkDeviceSize bufferBytes = inputBytes + outputBytes;
     const auto spirv=load_spirv(path);
     VkObjects object{};
     VkApplicationInfo app{};
     app.sType=VK_STRUCTURE_TYPE_APPLICATION_INFO;
     app.pApplicationName="Scarlett Original Native Linux Vulkan Compute";
-    app.apiVersion=VK_API_VERSION_1_0;
+    app.apiVersion = partition ? VK_API_VERSION_1_1 : VK_API_VERSION_1_0;
     VkInstanceCreateInfo instance_ci{};
     instance_ci.sType=VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_ci.pApplicationInfo=&app;
-    check(vkCreateInstance(&instance_ci,nullptr,&object.instance),"create instance");
+    const auto instanceResult = vkCreateInstance(&instance_ci, nullptr, &object.instance);
+    if (partition && instanceResult == VK_ERROR_INCOMPATIBLE_DRIVER) {
+        std::cout << "SKIP: Vulkan 1.1 unavailable\n";
+        return 77;
+    }
+    check(instanceResult,"create instance");
     std::uint32_t count=0;
     check(vkEnumeratePhysicalDevices(object.instance,&count,nullptr),"enumerate devices");
     if(count==0){
@@ -91,6 +119,12 @@ int test(const char* path){
     VkPhysicalDeviceProperties props{};
     // Select a compute queue, prefer a host-visible coherent memory type.
     for(auto device:devices){
+        vkGetPhysicalDeviceProperties(device, &props);
+        if (partition && (props.apiVersion < VK_API_VERSION_1_1 ||
+                          inputBytes % props.limits.minStorageBufferOffsetAlignment != 0 ||
+                          outputBytes > props.limits.maxStorageBufferRange ||
+                          groups > props.limits.maxComputeWorkGroupCount[0]))
+            continue;
         VkPhysicalDeviceMemoryProperties memory_props{};
         vkGetPhysicalDeviceMemoryProperties(device,&memory_props);
         bool supported_memory=false;
@@ -106,14 +140,14 @@ int test(const char* path){
         vkGetPhysicalDeviceQueueFamilyProperties(device,&n,families.data());
         for(std::uint32_t i=0;i<n;i++){
             if(families[i].queueCount&&(families[i].queueFlags&VK_QUEUE_COMPUTE_BIT)){
-                selected=device;family=i;vkGetPhysicalDeviceProperties(device,&props);
+                selected=device;family=i;
                 break;
             }
         }
         if(selected)break;
     }
     if(!selected){
-        std::cout<<"SKIP: No device with compute queue and host-coherent memory\n";
+        std::cout<<"SKIP: No device meets the compute fixture requirements\n";
         return 77;
     }
     const float priority=1.0f;
@@ -132,7 +166,7 @@ int test(const char* path){
     if(!queue)throw std::runtime_error("compute queue missing");
     VkBufferCreateInfo buffer_ci{};
     buffer_ci.sType=VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_ci.size=kBytes;
+    buffer_ci.size=bufferBytes;
     buffer_ci.usage=VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     buffer_ci.sharingMode=VK_SHARING_MODE_EXCLUSIVE;
     check(vkCreateBuffer(object.device,&buffer_ci,nullptr,&object.buffer),"create storage buffer");
@@ -157,24 +191,32 @@ int test(const char* path){
     alloc.memoryTypeIndex=memory_index;
     check(vkAllocateMemory(object.device,&alloc,nullptr,&object.memory),"allocate buffer memory");
     check(vkBindBufferMemory(object.device,object.buffer,object.memory,0),"bind buffer memory");
-    check(vkMapMemory(object.device,object.memory,0,kBytes,0,&object.mapped),"map storage buffer");
-    // Sentinel establishes that Vulkan shader performed the overwrite.
-    for(std::size_t i=0;i<kElements;i++)
-        static_cast<std::uint32_t*>(object.mapped)[i]=kUnchanged;
-    VkDescriptorSetLayoutBinding binding{};
-    binding.binding=0;
-    binding.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    binding.descriptorCount=1;
-    binding.stageFlags=VK_SHADER_STAGE_COMPUTE_BIT;
+    check(vkMapMemory(object.device,object.memory,0,bufferBytes,0,&object.mapped),"map storage buffer");
+    auto* words = static_cast<std::uint32_t*>(object.mapped);
+    if (partition)
+        std::memcpy(words, input.data(), inputBytes);
+    auto* result = words + input.size();
+    for (std::size_t i = 0; i < reference.size(); ++i)
+        result[i] = ~reference[i];  // An unwritten word must fail comparison.
+
+    // The original shader writes binding 0. The partition shader reads binding 0 and writes binding 1.
+    const std::uint32_t bindingCount = partition ? 2 : 1;
+    std::array<VkDescriptorSetLayoutBinding, 2> bindings{};
+    for (std::uint32_t i = 0; i < bindingCount; ++i) {
+        bindings[i].binding = i;
+        bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        bindings[i].descriptorCount = 1;
+        bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    }
     VkDescriptorSetLayoutCreateInfo set_ci{};
     set_ci.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    set_ci.bindingCount=1;
-    set_ci.pBindings=&binding;
+    set_ci.bindingCount=bindingCount;
+    set_ci.pBindings=bindings.data();
     check(vkCreateDescriptorSetLayout(object.device,&set_ci,nullptr,&object.set_layout),
           "create descriptor set layout");
     VkDescriptorPoolSize pool_size{};
     pool_size.type=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    pool_size.descriptorCount=1;
+    pool_size.descriptorCount=bindingCount;
     VkDescriptorPoolCreateInfo pool_ci{};
     pool_ci.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_ci.poolSizeCount=1;pool_ci.pPoolSizes=&pool_size;
@@ -188,16 +230,19 @@ int test(const char* path){
     set_alloc.pSetLayouts=&object.set_layout;
     VkDescriptorSet descriptor=VK_NULL_HANDLE;
     check(vkAllocateDescriptorSets(object.device,&set_alloc,&descriptor),"allocate descriptor");
-    VkDescriptorBufferInfo descriptor_buffer{};
-    descriptor_buffer.buffer=object.buffer;
-    descriptor_buffer.offset=0;
-    descriptor_buffer.range=kBytes;
-    VkWriteDescriptorSet write{};
-    write.sType=VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write.dstSet=descriptor;write.dstBinding=0;write.descriptorCount=1;
-    write.descriptorType=VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    write.pBufferInfo=&descriptor_buffer;
-    vkUpdateDescriptorSets(object.device,1,&write,0,nullptr);
+    std::array<VkDescriptorBufferInfo, 2> buffers{};
+    buffers[0] = {object.buffer, 0, inputBytes};
+    buffers[bindingCount - 1] = {object.buffer, inputBytes, outputBytes};
+    std::array<VkWriteDescriptorSet, 2> writes{};
+    for (std::uint32_t i = 0; i < bindingCount; ++i) {
+        writes[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        writes[i].dstSet = descriptor;
+        writes[i].dstBinding = i;
+        writes[i].descriptorCount = 1;
+        writes[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        writes[i].pBufferInfo = &buffers[i];
+    }
+    vkUpdateDescriptorSets(object.device, bindingCount, writes.data(), 0, nullptr);
     VkPipelineLayoutCreateInfo layout_ci{};
     layout_ci.sType=VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layout_ci.setLayoutCount=1;layout_ci.pSetLayouts=&object.set_layout;
@@ -237,14 +282,14 @@ int test(const char* path){
     vkCmdBindPipeline(command,VK_PIPELINE_BIND_POINT_COMPUTE,object.pipeline);
     vkCmdBindDescriptorSets(command,VK_PIPELINE_BIND_POINT_COMPUTE,
                             object.pipeline_layout,0,1,&descriptor,0,nullptr);
-    vkCmdDispatch(command,4,1,1); // 4 * local_size_x 64 = 256 shader invocations
+    vkCmdDispatch(command,groups,1,1);
     VkBufferMemoryBarrier barrier{};
     barrier.sType=VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
     barrier.srcAccessMask=VK_ACCESS_SHADER_WRITE_BIT;
     barrier.dstAccessMask=VK_ACCESS_HOST_READ_BIT;
     barrier.srcQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
     barrier.dstQueueFamilyIndex=VK_QUEUE_FAMILY_IGNORED;
-    barrier.buffer=object.buffer;barrier.offset=0;barrier.size=kBytes;
+    barrier.buffer=object.buffer;barrier.offset=inputBytes;barrier.size=outputBytes;
     vkCmdPipelineBarrier(command,VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                         VK_PIPELINE_STAGE_HOST_BIT,0,0,nullptr,1,&barrier,0,nullptr);
     check(vkEndCommandBuffer(command),"end command buffer");
@@ -258,13 +303,34 @@ int test(const char* path){
     check(vkQueueSubmit(queue,1,&submit,object.fence),"submit compute dispatch");
     check(vkWaitForFences(object.device,1,&object.fence,VK_TRUE,10000000000ull),
           "wait for compute fence");
-    const auto* result=static_cast<const std::uint32_t*>(object.mapped);
     std::uint64_t checksum=0;
-    for(std::uint32_t i=0;i<kElements;i++){
-        if(result[i]!=expected(i)){
+    for(std::size_t i=0;i<reference.size();i++){
+        if(result[i]!=reference[i]){
+            if (partition) {
+                const auto lane = i / kPartitionWordsPerLane;
+                std::cerr << "partition mismatch: group=" << lane / kLanesPerGroup
+                          << " lane=" << lane % kLanesPerGroup << " field=" << i % kPartitionWordsPerLane
+                          << " expected=" << reference[i] << " actual=" << result[i] << '\n';
+                return 1;
+            }
             throw std::runtime_error("compute readback mismatch at index "+std::to_string(i));
         }
         checksum+=result[i];
+    }
+    if (partition) {
+        VkPhysicalDeviceSubgroupProperties subgroup{};
+        subgroup.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SUBGROUP_PROPERTIES;
+        VkPhysicalDeviceProperties2 properties{};
+        properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+        properties.pNext = &subgroup;
+        const auto getProperties = reinterpret_cast<PFN_vkGetPhysicalDeviceProperties2>(
+            vkGetInstanceProcAddr(object.instance, "vkGetPhysicalDeviceProperties2"));
+        if (!getProperties) throw std::runtime_error("Vulkan 1.1 device properties unavailable");
+        getProperties(selected, &properties);
+        std::cout << "{\"kind\":\"wave64-partition\",\"reported_subgroup_size\":" << subgroup.subgroupSize
+                  << ",\"device_type\":" << props.deviceType << ",\"workgroups\":" << groups
+                  << ",\"words_verified\":" << reference.size() << "}\n";
+        return 0;
     }
     std::cout<<"{\"kind\":\"native-linux-elf-vulkan-compute-readback\","
              "\"vendor_id\":"<<props.vendorID<<","
@@ -283,8 +349,17 @@ int test(const char* path){
 }
 }
 int main(int argc,char** argv){
-    if(argc!=2){std::cerr<<"Usage: linux_vulkan_compute_readback SHADER.spv\n";return 2;}
-    try{return test(argv[1]);}
+    if (argc != 2 && argc != 4) {
+        std::cerr << "Usage: linux_vulkan_compute_readback SHADER.spv [PARTITION_INPUT.u32 REFERENCE.u32]\n";
+        return 2;
+    }
+    try {
+        if (argc == 4)
+            return test(argv[1], load_vectors(argv[2]), load_vectors(argv[3]));
+        std::vector<std::uint32_t> reference(kElements);
+        for (std::uint32_t i = 0; i < kElements; ++i) reference[i] = expected(i);
+        return test(argv[1], {}, reference);
+    }
     catch(const std::exception& ex){
         std::cerr<<"native Linux Vulkan compute FAILED: "<<ex.what()<<"\n";
         return 1;
